@@ -1,4 +1,4 @@
-name: Deploy .NET 8 Backend to VPS (Stable IIS Safe)
+name: Deploy .NET 8 Backend to VPS (Stable No IIS Control)
 
 on:
   workflow_dispatch:
@@ -26,37 +26,40 @@ jobs:
         run: dotnet publish MMatilde.Api/MMatilde.Api.csproj -c Release -o "${{ github.workspace }}\publish" --no-restore
 
       # =========================
-      # DEPLOY SAFE (IIS FRIENDLY)
+      # DEPLOY (SIN IIS CONTROL)
       # =========================
       - name: Deploy to IIS (robocopy safe)
         run: |
-          Import-Module WebAdministration
-
+          $source = "${{ github.workspace }}\publish"
           $target = "C:\inetpub\wwwroot\MerceriaBack"
 
           # =========================
-          # STOP APP POOL
-          # =========================
-          Stop-WebAppPool -Name "MerceriaBack" -ErrorAction SilentlyContinue
-
-          Start-Sleep -Seconds 5
-
-          # =========================
-          # PRESERVAR appsettings DEL VPS
+          # PRESERVAR appsettings del VPS
           # =========================
           $serverConfig = "$target\appsettings.json"
-          $tempConfig = "${{ github.workspace }}\publish\appsettings.json"
+          $localConfig = "$source\appsettings.json"
 
           if (Test-Path $serverConfig) {
-            Copy-Item $serverConfig $tempConfig -Force
+            Copy-Item $serverConfig $localConfig -Force
           }
 
           # =========================
-          # DEPLOY CON ROBOCOPY (EVITA LOCKS)
+          # ASEGURAR DESTINO
           # =========================
-          robocopy "${{ github.workspace }}\publish" $target /MIR /R:2 /W:2
+          if (!(Test-Path $target)) {
+            New-Item -ItemType Directory -Path $target -Force | Out-Null
+          }
 
           # =========================
-          # START APP POOL
+          # DEPLOY CON ROBOCOPY
           # =========================
-          Start-WebAppPool -Name "MerceriaBack" -ErrorAction SilentlyContinue
+          robocopy $source $target /MIR /R:2 /W:2 /NFL /NDL
+
+          # =========================
+          # MANEJO DE EXIT CODE ROBOCOPY
+          # =========================
+          if ($LASTEXITCODE -lt 8) {
+            exit 0
+          } else {
+            exit $LASTEXITCODE
+          }
