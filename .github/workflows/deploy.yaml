@@ -1,4 +1,4 @@
-name: Deploy .NET 8 Backend to VPS (Stable)
+name: Deploy .NET 8 Backend to VPS (Stable IIS Safe)
 
 on:
   workflow_dispatch:
@@ -26,38 +26,37 @@ jobs:
         run: dotnet publish MMatilde.Api/MMatilde.Api.csproj -c Release -o "${{ github.workspace }}\publish" --no-restore
 
       # =========================
-      # DEPLOY SAFE (PRESERVA CONFIG VPS)
+      # DEPLOY SAFE (IIS FRIENDLY)
       # =========================
-      - name: Deploy to IIS
+      - name: Deploy to IIS (robocopy safe)
         run: |
+          Import-Module WebAdministration
+
           $target = "C:\inetpub\wwwroot\MerceriaBack"
-          $temp = "C:\inetpub\wwwroot\MerceriaBack_temp"
-
-          # Limpiar temp
-          if (Test-Path $temp) {
-            Remove-Item $temp -Recurse -Force
-          }
-
-          New-Item -ItemType Directory -Path $temp -Force | Out-Null
-
-          # Copiar build nuevo
-          Copy-Item "${{ github.workspace }}\publish\*" $temp -Recurse -Force
 
           # =========================
-          # PRESERVAR appsettings.json DEL SERVIDOR
+          # STOP APP POOL
+          # =========================
+          Stop-WebAppPool -Name "MerceriaBack" -ErrorAction SilentlyContinue
+
+          Start-Sleep -Seconds 5
+
+          # =========================
+          # PRESERVAR appsettings DEL VPS
           # =========================
           $serverConfig = "$target\appsettings.json"
-          $tempConfig = "$temp\appsettings.json"
+          $tempConfig = "${{ github.workspace }}\publish\appsettings.json"
 
           if (Test-Path $serverConfig) {
             Copy-Item $serverConfig $tempConfig -Force
           }
 
           # =========================
-          # SWAP ATÓMICO
+          # DEPLOY CON ROBOCOPY (EVITA LOCKS)
           # =========================
-          if (Test-Path $target) {
-            Remove-Item $target -Recurse -Force
-          }
+          robocopy "${{ github.workspace }}\publish" $target /MIR /R:2 /W:2
 
-          Rename-Item $temp "MerceriaBack"
+          # =========================
+          # START APP POOL
+          # =========================
+          Start-WebAppPool -Name "MerceriaBack" -ErrorAction SilentlyContinue
