@@ -1,4 +1,4 @@
-name: Deploy .NET 8 Backend to VPS (Simple Stable)
+name: Deploy .NET 8 Backend to VPS (Stable No IIS Control)
 
 on:
   workflow_dispatch:
@@ -26,15 +26,7 @@ jobs:
         run: dotnet publish MMatilde.Api/MMatilde.Api.csproj -c Release -o "${{ github.workspace }}\publish" --no-restore
 
       # =========================
-      # STOP APP POOL (SIMPLIFIED)
-      # =========================
-      - name: Stop IIS App Pool
-        run: |
-          Import-Module WebAdministration
-          Stop-WebAppPool -Name "MerceriaBack" -ErrorAction SilentlyContinue
-
-      # =========================
-      # DEPLOY
+      # DEPLOY (NO IIS CONTROL)
       # =========================
       - name: Deploy to IIS
         run: |
@@ -54,11 +46,3 @@ jobs:
           }
 
           Rename-Item $temp "MerceriaBack"
-
-      # =========================
-      # START APP POOL
-      # =========================
-      - name: Start IIS App Pool
-        run: |
-          Import-Module WebAdministration
-          Start-WebAppPool -Name "MerceriaBack" -ErrorAction SilentlyContinue
