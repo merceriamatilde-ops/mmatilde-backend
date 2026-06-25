@@ -1,6 +1,5 @@
 name: Deploy .NET 8 Backend to VPS (Manual)
 
-# 1. Cambiamos el disparador a manual
 on:
   workflow_dispatch:
     inputs:
@@ -11,7 +10,7 @@ on:
 
 jobs:
   deploy:
-    runs-on: [self-hosted, Windows, vps]
+    runs-on: [self-hosted, Windows, X64]
 
     steps:
       - name: Checkout Code
@@ -22,26 +21,28 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Publish Application
+      - name: Restore dependencies
         run: |
           dotnet restore MMatilde.Api/MMatilde.Api.csproj
+
+      - name: Publish Application
+        run: |
           dotnet publish MMatilde.Api/MMatilde.Api.csproj -c Release -o ./publish --no-restore
 
       - name: Stop IIS Application Pool
         run: |
           Import-Module WebAdministration
-          # CAMBIADO: Ajustado al nombre real de tu Application Pool
-          if ((Get-WebAppPoolState -Name "MerceriaBack").Value -eq "Started") {
-              Stop-WebAppPool -Name "MerceriaBack"
-              Start-Sleep -Seconds 2
-          }
+          Stop-WebAppPool -Name "MerceriaBack"
 
-      - name: Copy Files to IIS
+      - name: Clean IIS folder
+        run: |
+          Remove-Item "C:\inetpub\wwwroot\MerceriaBack\*" -Recurse -Force -ErrorAction SilentlyContinue
+
+      - name: Deploy to IIS
         run: |
           Copy-Item -Path "./publish/*" -Destination "C:\inetpub\wwwroot\MerceriaBack" -Recurse -Force
 
       - name: Start IIS Application Pool
         run: |
           Import-Module WebAdministration
-          # CAMBIADO: Ajustado al nombre real de tu Application Pool
           Start-WebAppPool -Name "MerceriaBack"
