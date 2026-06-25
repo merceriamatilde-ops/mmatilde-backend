@@ -24,8 +24,8 @@ jobs:
 
       - name: Publish Application
         run: |
-          dotnet restore
-          dotnet publish -c Release -o ./publish --no-restore
+          dotnet restore MMatilde.Api/MMatilde.Api.csproj
+          dotnet publish MMatilde.Api/MMatilde.Api.csproj -c Release -o ./publish --no-restore
 
       - name: Stop IIS Application Pool
         run: |
