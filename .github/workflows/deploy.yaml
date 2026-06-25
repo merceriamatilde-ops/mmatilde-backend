@@ -1,4 +1,4 @@
-name: Deploy .NET 8 Backend to VPS (Production Safe)
+name: Deploy .NET 8 Backend to VPS (Simple)
 
 on:
   workflow_dispatch:
@@ -16,8 +16,6 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # ❌ REMOVIDO: setup-dotnet (ya está instalado en el VPS)
-
       # =========================
       # BUILD
       # =========================
@@ -26,25 +24,6 @@ jobs:
 
       - name: Publish Application
         run: dotnet publish MMatilde.Api/MMatilde.Api.csproj -c Release -o "${{ github.workspace }}\publish" --no-restore
-
-      # =========================
-      # BACKUP CURRENT VERSION
-      # =========================
-      - name: Backup current deployment
-        run: |
-          $target = "C:\inetpub\wwwroot\MerceriaBack"
-          $backup = "C:\inetpub\backups\MerceriaBack_$(Get-Date -Format yyyyMMdd_HHmmss)"
-
-          if (!(Test-Path "C:\inetpub\backups")) {
-            New-Item -ItemType Directory -Path "C:\inetpub\backups"
-          }
-
-          if (Test-Path $target) {
-            Copy-Item $target $backup -Recurse -Force
-            Write-Host "Backup created at $backup"
-          } else {
-            Write-Host "No previous deployment found, skipping backup"
-          }
 
       # =========================
       # STOP APP POOL
@@ -61,9 +40,9 @@ jobs:
           }
 
       # =========================
-      # ATOMIC DEPLOY (TEMP SWAP)
+      # DEPLOY
       # =========================
-      - name: Deploy to IIS (safe swap)
+      - name: Deploy to IIS
         run: |
           $target = "C:\inetpub\wwwroot\MerceriaBack"
           $temp = "C:\inetpub\wwwroot\MerceriaBack_temp"
