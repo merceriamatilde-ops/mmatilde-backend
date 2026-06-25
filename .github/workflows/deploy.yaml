@@ -1,4 +1,4 @@
-name: Deploy .NET 8 Backend to VPS (Stable No IIS Control)
+name: Deploy .NET 8 Backend to VPS (Safe AppSettings Protected)
 
 on:
   workflow_dispatch:
@@ -26,35 +26,22 @@ jobs:
         run: dotnet publish MMatilde.Api/MMatilde.Api.csproj -c Release -o "${{ github.workspace }}\publish" --no-restore
 
       # =========================
-      # DEPLOY (SIN IIS CONTROL)
+      # DEPLOY (SAFE)
       # =========================
-      - name: Deploy to IIS (robocopy safe)
+      - name: Deploy to IIS (protected config)
         run: |
           $source = "${{ github.workspace }}\publish"
           $target = "C:\inetpub\wwwroot\MerceriaBack"
 
-          # =========================
-          # PRESERVAR CONFIG DEL VPS
-          # =========================
-          $serverConfig = "$target\appsettings.json"
-          $localConfig = "$source\appsettings.json"
-
-          if (Test-Path $serverConfig) {
-            Copy-Item $serverConfig $localConfig -Force
-          }
-
-          # =========================
-          # ASEGURAR DESTINO
-          # =========================
+          # Crear carpeta destino si no existe
           if (!(Test-Path $target)) {
             New-Item -ItemType Directory -Path $target -Force | Out-Null
           }
 
-          # =========================
-          # DEPLOY
-          # =========================
-          robocopy $source $target /MIR /R:2 /W:2 /NFL /NDL
+          # Deploy excluyendo appsettings.json (NO se pisa nunca)
+          robocopy $source $target /MIR /R:2 /W:2 /NFL /NDL /XF appsettings.json
 
+          # Robocopy exit code fix
           if ($LASTEXITCODE -lt 8) {
             exit 0
           } else {
