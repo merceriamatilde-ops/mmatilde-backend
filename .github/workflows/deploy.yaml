@@ -26,6 +26,14 @@ jobs:
         run: dotnet publish MMatilde.Api/MMatilde.Api.csproj -c Release -o "${{ github.workspace }}\publish" --no-restore
 
       # =========================
+      # STOP IIS (CLAVE)
+      # =========================
+      - name: Stop IIS App Pool
+        run: |
+          Import-Module WebAdministration
+          Stop-WebAppPool -Name "MerceriaBack" -ErrorAction SilentlyContinue
+
+      # =========================
       # DEPLOY (SAFE SWAP)
       # =========================
       - name: Deploy to IIS (swap strategy)
@@ -33,35 +41,45 @@ jobs:
           $source = "${{ github.workspace }}\publish"
           $target = "C:\inetpub\wwwroot\MerceriaBack"
           $temp   = "C:\inetpub\wwwroot\MerceriaBack_new"
+          $old    = "C:\inetpub\wwwroot\MerceriaBack_old"
 
           # =========================
-          # CREAR CARPETA TEMP
+          # LIMPIAR TEMP
           # =========================
           if (Test-Path $temp) {
-            Remove-Item $temp -Recurse -Force
+            Remove-Item $temp -Recurse -Force -ErrorAction SilentlyContinue
           }
 
           New-Item -ItemType Directory -Path $temp -Force | Out-Null
 
           # =========================
-          # COPIAR BUILD A TEMP (SIN LOCKS)
+          # COPIAR BUILD
           # =========================
           robocopy $source $temp /MIR /R:2 /W:2 /NFL /NDL /XF appsettings.json
 
           # =========================
-          # SWAP ATÓMICO
+          # SWAP SEGURO
           # =========================
+          if (Test-Path $old) {
+            Remove-Item $old -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
           if (Test-Path $target) {
-            Remove-Item $target -Recurse -Force
+            Rename-Item $target "MerceriaBack_old"
           }
 
           Rename-Item $temp "MerceriaBack"
 
           # =========================
-          # FIX EXIT CODE ROBOCOPY
+          # LIMPIEZA POSTERIOR
           # =========================
-          if ($LASTEXITCODE -lt 8) {
-            exit 0
-          } else {
-            exit $LASTEXITCODE
-          }
+          Start-Sleep -Seconds 3
+          Remove-Item $old -Recurse -Force -ErrorAction SilentlyContinue
+
+      # =========================
+      # START IIS
+      # =========================
+      - name: Start IIS App Pool
+        run: |
+          Import-Module WebAdministration
+          Start-WebAppPool -Name "MerceriaBack"
