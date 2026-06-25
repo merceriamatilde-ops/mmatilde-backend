@@ -1,4 +1,4 @@
-name: Deploy .NET 8 Backend to VPS (Stable No IIS Control)
+name: Deploy .NET 8 Backend to VPS (Stable)
 
 on:
   workflow_dispatch:
@@ -26,21 +26,36 @@ jobs:
         run: dotnet publish MMatilde.Api/MMatilde.Api.csproj -c Release -o "${{ github.workspace }}\publish" --no-restore
 
       # =========================
-      # DEPLOY (NO IIS CONTROL)
+      # DEPLOY SAFE (PRESERVA CONFIG VPS)
       # =========================
       - name: Deploy to IIS
         run: |
           $target = "C:\inetpub\wwwroot\MerceriaBack"
           $temp = "C:\inetpub\wwwroot\MerceriaBack_temp"
 
+          # Limpiar temp
           if (Test-Path $temp) {
             Remove-Item $temp -Recurse -Force
           }
 
           New-Item -ItemType Directory -Path $temp -Force | Out-Null
 
+          # Copiar build nuevo
           Copy-Item "${{ github.workspace }}\publish\*" $temp -Recurse -Force
 
+          # =========================
+          # PRESERVAR appsettings.json DEL SERVIDOR
+          # =========================
+          $serverConfig = "$target\appsettings.json"
+          $tempConfig = "$temp\appsettings.json"
+
+          if (Test-Path $serverConfig) {
+            Copy-Item $serverConfig $tempConfig -Force
+          }
+
+          # =========================
+          # SWAP ATÓMICO
+          # =========================
           if (Test-Path $target) {
             Remove-Item $target -Recurse -Force
           }
