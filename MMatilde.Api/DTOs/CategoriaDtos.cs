@@ -1,0 +1,12 @@
+namespace MMatilde.Api.DTOs;
+
+public record CategoriaConConteoDto(int Id, string Nombre, string Slug, string? Icono, int Count);
+
+public record SubcategoriaAdminDto(int Id, string Nombre, string Slug, bool EsMakor, int Count);
+public record CategoriaAdminDto(int Id, string Nombre, string Slug, bool EsMakor, int Count, List<SubcategoriaAdminDto> Subcategorias);
+
+public record CategoriaCreateDto(string Nombre);
+public record CategoriaUpdateDto(string Nombre);
+
+public record SubcategoriaCreateDto(string Nombre, int CategoriaId);
+public record SubcategoriaUpdateDto(string Nombre);

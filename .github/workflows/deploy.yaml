@@ -1,0 +1,47 @@
+name: Deploy .NET 8 Backend to VPS (Manual)
+
+# 1. Cambiamos el disparador a manual
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Entorno de despliegue'
+        required: true
+        default: 'production'
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, Windows, vps]
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Publish Application
+        run: |
+          dotnet restore
+          dotnet publish -c Release -o ./publish --no-restore
+
+      - name: Stop IIS Application Pool
+        run: |
+          Import-Module WebAdministration
+          # CAMBIADO: Ajustado al nombre real de tu Application Pool
+          if ((Get-WebAppPoolState -Name "MerceriaBack").Value -eq "Started") {
+              Stop-WebAppPool -Name "MerceriaBack"
+              Start-Sleep -Seconds 2
+          }
+
+      - name: Copy Files to IIS
+        run: |
+          Copy-Item -Path "./publish/*" -Destination "C:\inetpub\wwwroot\MerceriaBack" -Recurse -Force
+
+      - name: Start IIS Application Pool
+        run: |
+          Import-Module WebAdministration
+          # CAMBIADO: Ajustado al nombre real de tu Application Pool
+          Start-WebAppPool -Name "MerceriaBack"
