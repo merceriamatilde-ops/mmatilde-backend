@@ -1,4 +1,4 @@
-name: Deploy .NET 8 Backend to VPS (Manual)
+name: Deploy .NET 8 Backend to VPS (Production Safe)
 
 on:
   workflow_dispatch:
@@ -21,28 +21,72 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      # =========================
+      # BUILD
+      # =========================
       - name: Restore dependencies
-        run: |
-          dotnet restore MMatilde.Api/MMatilde.Api.csproj
+        run: dotnet restore MMatilde.Api/MMatilde.Api.csproj
 
       - name: Publish Application
-        run: |
-          dotnet publish MMatilde.Api/MMatilde.Api.csproj -c Release -o ./publish --no-restore
+        run: dotnet publish MMatilde.Api/MMatilde.Api.csproj -c Release -o "${{ github.workspace }}\publish" --no-restore
 
-      - name: Stop IIS Application Pool
+      # =========================
+      # BACKUP CURRENT VERSION
+      # =========================
+      - name: Backup current deployment
+        run: |
+          $target = "C:\inetpub\wwwroot\MerceriaBack"
+          $backup = "C:\inetpub\backups\MerceriaBack_$(Get-Date -Format yyyyMMdd_HHmmss)"
+
+          if (!(Test-Path "C:\inetpub\backups")) {
+            New-Item -ItemType Directory -Path "C:\inetpub\backups"
+          }
+
+          if (Test-Path $target) {
+            Copy-Item $target $backup -Recurse -Force
+            Write-Host "Backup created at $backup"
+          } else {
+            Write-Host "No previous deployment found, skipping backup"
+          }
+
+      # =========================
+      # STOP APP POOL
+      # =========================
+      - name: Stop IIS App Pool
         run: |
           Import-Module WebAdministration
-          Stop-WebAppPool -Name "MerceriaBack"
 
-      - name: Clean IIS folder
+          $pool = "MerceriaBack"
+          if ((Get-WebAppPoolState -Name $pool).Value -eq "Started") {
+            Stop-WebAppPool -Name $pool
+          }
+
+      # =========================
+      # ATOMIC DEPLOY (TEMP SWAP)
+      # =========================
+      - name: Deploy to IIS (safe swap)
         run: |
-          Remove-Item "C:\inetpub\wwwroot\MerceriaBack\*" -Recurse -Force -ErrorAction SilentlyContinue
+          $target = "C:\inetpub\wwwroot\MerceriaBack"
+          $temp = "C:\inetpub\wwwroot\MerceriaBack_temp"
 
-      - name: Deploy to IIS
-        run: |
-          Copy-Item -Path "./publish/*" -Destination "C:\inetpub\wwwroot\MerceriaBack" -Recurse -Force
+          if (Test-Path $temp) {
+            Remove-Item $temp -Recurse -Force
+          }
 
-      - name: Start IIS Application Pool
+          New-Item -ItemType Directory -Path $temp -Force
+
+          Copy-Item "${{ github.workspace }}\publish\*" $temp -Recurse -Force
+
+          if (Test-Path $target) {
+            Remove-Item $target -Recurse -Force
+          }
+
+          Rename-Item $temp "MerceriaBack"
+
+      # =========================
+      # START APP POOL
+      # =========================
+      - name: Start IIS App Pool
         run: |
           Import-Module WebAdministration
           Start-WebAppPool -Name "MerceriaBack"
