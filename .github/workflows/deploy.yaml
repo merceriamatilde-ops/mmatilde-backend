@@ -1,4 +1,4 @@
-name: Deploy .NET 8 Backend to VPS (Safe AppSettings Protected)
+name: Deploy .NET 8 Backend to VPS (Stable Swap Deploy)
 
 on:
   workflow_dispatch:
@@ -26,22 +26,40 @@ jobs:
         run: dotnet publish MMatilde.Api/MMatilde.Api.csproj -c Release -o "${{ github.workspace }}\publish" --no-restore
 
       # =========================
-      # DEPLOY (SAFE)
+      # DEPLOY (SAFE SWAP)
       # =========================
-      - name: Deploy to IIS (protected config)
+      - name: Deploy to IIS (swap strategy)
         run: |
           $source = "${{ github.workspace }}\publish"
           $target = "C:\inetpub\wwwroot\MerceriaBack"
+          $temp   = "C:\inetpub\wwwroot\MerceriaBack_new"
 
-          # Crear carpeta destino si no existe
-          if (!(Test-Path $target)) {
-            New-Item -ItemType Directory -Path $target -Force | Out-Null
+          # =========================
+          # CREAR CARPETA TEMP
+          # =========================
+          if (Test-Path $temp) {
+            Remove-Item $temp -Recurse -Force
           }
 
-          # Deploy excluyendo appsettings.json (NO se pisa nunca)
-          robocopy $source $target /MIR /R:2 /W:2 /NFL /NDL /XF appsettings.json
+          New-Item -ItemType Directory -Path $temp -Force | Out-Null
 
-          # Robocopy exit code fix
+          # =========================
+          # COPIAR BUILD A TEMP (SIN LOCKS)
+          # =========================
+          robocopy $source $temp /MIR /R:2 /W:2 /NFL /NDL /XF appsettings.json
+
+          # =========================
+          # SWAP ATÓMICO
+          # =========================
+          if (Test-Path $target) {
+            Remove-Item $target -Recurse -Force
+          }
+
+          Rename-Item $temp "MerceriaBack"
+
+          # =========================
+          # FIX EXIT CODE ROBOCOPY
+          # =========================
           if ($LASTEXITCODE -lt 8) {
             exit 0
           } else {
