@@ -67,8 +67,17 @@ jobs:
           Get-ChildItem $target -Recurse -Force -ErrorAction SilentlyContinue |
             Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
 
-          # copiar nuevo deploy
+          # copiar nuevo deploy controlando el exit code de robocopy
           robocopy $source $target /MIR /R:2 /W:2 /XF appsettings.json
+          
+          # Robocopy exit codes menores a 8 significan éxito (1 = Archivos copiados exitosamente)
+          if ($LastExitCode -lt 8) {
+              Write-Host "Robocopy finalizó con éxito (Exit Code: $LastExitCode)"
+              $global:LASTEXITCODE = 0
+          } else {
+              Write-Error "Robocopy falló críticamente con Exit Code: $LastExitCode"
+              exit $LastExitCode
+          }
 
       # =========================
       # START IIS
