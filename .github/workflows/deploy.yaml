@@ -1,4 +1,4 @@
-name: Deploy .NET 8 Backend to VPS (Stable No IIS Control)
+name: Deploy .NET 8 Backend to VPS (Stable IIS Safe Fix)
 
 on:
   workflow_dispatch:
@@ -16,25 +16,35 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # =========================
-      # BUILD
-      # =========================
       - name: Restore dependencies
         run: dotnet restore MMatilde.Api/MMatilde.Api.csproj
 
       - name: Publish Application
         run: dotnet publish MMatilde.Api/MMatilde.Api.csproj -c Release -o "${{ github.workspace }}\publish" --no-restore
 
-      # =========================
-      # DEPLOY (SIN IIS CONTROL)
-      # =========================
-      - name: Deploy to IIS (robocopy safe)
+      - name: Deploy to IIS (fixed locks)
         run: |
           $source = "${{ github.workspace }}\publish"
           $target = "C:\inetpub\wwwroot\MerceriaBack"
 
+          Import-Module WebAdministration
+
           # =========================
-          # PRESERVAR appsettings del VPS
+          # STOP IIS COMPLETO
+          # =========================
+          Stop-WebAppPool -Name "MerceriaBack" -ErrorAction SilentlyContinue
+          Stop-Website -Name "MerceriaBack" -ErrorAction SilentlyContinue
+
+          Start-Sleep -Seconds 10
+
+          # =========================
+          # KILL PROCESOS BLOQUEANDO DLLs
+          # =========================
+          Get-Process w3wp -ErrorAction SilentlyContinue | Stop-Process -Force
+          Start-Sleep -Seconds 3
+
+          # =========================
+          # PRESERVAR CONFIG
           # =========================
           $serverConfig = "$target\appsettings.json"
           $localConfig = "$source\appsettings.json"
@@ -51,15 +61,18 @@ jobs:
           }
 
           # =========================
-          # DEPLOY CON ROBOCOPY
+          # DEPLOY
           # =========================
           robocopy $source $target /MIR /R:2 /W:2 /NFL /NDL
 
-          # =========================
-          # MANEJO DE EXIT CODE ROBOCOPY
-          # =========================
           if ($LASTEXITCODE -lt 8) {
             exit 0
           } else {
             exit $LASTEXITCODE
           }
+
+          # =========================
+          # START IIS
+          # =========================
+          Start-WebAppPool -Name "MerceriaBack" -ErrorAction SilentlyContinue
+          Start-Website -Name "MerceriaBack" -ErrorAction SilentlyContinue
