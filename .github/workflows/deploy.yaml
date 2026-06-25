@@ -29,18 +29,31 @@ jobs:
       # STOP IIS + FREE LOCKS
       # =========================
       - name: Stop IIS App Pool
+        shell: powershell
         run: |
           Import-Module WebAdministration
-          Stop-WebAppPool -Name "MerceriaBack" -ErrorAction SilentlyContinue
+          
+          # Verificar el estado actual del App Pool para evitar errores si ya está detenido
+          $poolState = (Get-WebAppPoolState -Name "MerceriaBack").Value
+          Write-Host "El estado actual del App Pool es: $poolState"
+          
+          if ($poolState -ne "Stopped") {
+              Write-Host "Deteniendo el App Pool..."
+              Stop-WebAppPool -Name "MerceriaBack"
+              Start-Sleep -Seconds 3
+          } else {
+              Write-Host "El App Pool ya estaba detenido. Continuando..."
+          }
 
-          # asegurar liberación de locks
-          Start-Sleep -Seconds 5
+          # Asegurar liberación de locks
+          Start-Sleep -Seconds 2
           Get-Process w3wp -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 
       # =========================
       # DEPLOY (SAFE OVERWRITE - NO SWAP)
       # =========================
       - name: Deploy to IIS
+        shell: powershell
         run: |
           $source = "${{ github.workspace }}\publish"
           $target = "C:\inetpub\wwwroot\MerceriaBack"
@@ -61,6 +74,14 @@ jobs:
       # START IIS
       # =========================
       - name: Start IIS App Pool
+        shell: powershell
         run: |
           Import-Module WebAdministration
-          Start-WebAppPool -Name "MerceriaBack"
+          
+          $poolState = (Get-WebAppPoolState -Name "MerceriaBack").Value
+          if ($poolState -ne "Started") {
+              Write-Host "Iniciando el App Pool..."
+              Start-WebAppPool -Name "MerceriaBack"
+          } else {
+              Write-Host "El App Pool ya está corriendo."
+          }
