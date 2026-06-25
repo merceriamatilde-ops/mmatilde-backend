@@ -8,45 +8,71 @@ using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
+//
 // =========================
-// CONFIGURATION LAYERS
+// CONFIGURATION (ORDEN CORRECTO)
 // =========================
+//
 
-// 1. Base config (siempre)
+// 1. Config base del proyecto (SIEMPRE)
 builder.Configuration.AddJsonFile(
     "appsettings.json",
-    optional: false,
+    optional: true,
     reloadOnChange: true
 );
 
-// 2. Environment-specific config (local/dev/prod)
+// 2. Config por entorno (Development / Production)
 builder.Configuration.AddJsonFile(
     $"appsettings.{builder.Environment.EnvironmentName}.json",
     optional: true,
     reloadOnChange: true
 );
 
-// 3. External VPS config (solo si existe)
-var externalConfig = @"C:\Deploy\.appsetings\Mmerceria\appsettings.json";
+// 3. Config externa VPS (override final)
+var externalConfigPath = @"C:\Deploy\.appsetings\Mmerceria\appsettings.json";
 
-if (File.Exists(externalConfig))
+if (File.Exists(externalConfigPath))
 {
     builder.Configuration.AddJsonFile(
-        externalConfig,
+        externalConfigPath,
         optional: true,
         reloadOnChange: true
     );
 }
 
+//
+// =========================
+// VALIDACIÓN MÍNIMA (EVITA 500 SILENCIOSOS)
+// =========================
+//
+
+var conn = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(conn))
+{
+    throw new Exception("Missing ConnectionString: DefaultConnection");
+}
+
+var jwtKey = builder.Configuration["Jwt:Key"];
+if (string.IsNullOrWhiteSpace(jwtKey))
+{
+    throw new Exception("Missing Jwt:Key configuration");
+}
+
+//
 // =========================
 // DATABASE
 // =========================
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+//
 
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseNpgsql(conn));
+
+//
 // =========================
 // HTTP CLIENT
 // =========================
+//
+
 builder.Services.AddHttpClient<MakorScraperService>()
     .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
     {
@@ -56,9 +82,12 @@ builder.Services.AddHttpClient<MakorScraperService>()
 
 builder.Services.AddScoped<SyncService>();
 
+//
 // =========================
 // CONTROLLERS
 // =========================
+//
+
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
@@ -68,9 +97,12 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+//
 // =========================
 // CORS
 // =========================
+//
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -81,9 +113,12 @@ builder.Services.AddCors(options =>
     });
 });
 
+//
 // =========================
 // JWT AUTH
 // =========================
+//
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -96,16 +131,19 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidAudience = builder.Configuration["Jwt:Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!)
+                Encoding.UTF8.GetBytes(jwtKey!)
             )
         };
     });
 
 var app = builder.Build();
 
+//
 // =========================
 // PIPELINE
 // =========================
+//
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -119,9 +157,12 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+//
 // =========================
-// SEED DATA
+// SEED
 // =========================
+//
+
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
