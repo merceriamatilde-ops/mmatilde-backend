@@ -1,4 +1,4 @@
-name: Deploy .NET 8 Backend to VPS (Stable Swap Deploy)
+name: Deploy .NET 8 Backend to VPS (Stable Deploy)
 
 on:
   workflow_dispatch:
@@ -26,55 +26,36 @@ jobs:
         run: dotnet publish MMatilde.Api/MMatilde.Api.csproj -c Release -o "${{ github.workspace }}\publish" --no-restore
 
       # =========================
-      # STOP IIS (CLAVE)
+      # STOP IIS + FREE LOCKS
       # =========================
       - name: Stop IIS App Pool
         run: |
           Import-Module WebAdministration
           Stop-WebAppPool -Name "MerceriaBack" -ErrorAction SilentlyContinue
 
+          # asegurar liberación de locks
+          Start-Sleep -Seconds 5
+          Get-Process w3wp -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+
       # =========================
-      # DEPLOY (SAFE SWAP)
+      # DEPLOY (SAFE OVERWRITE - NO SWAP)
       # =========================
-      - name: Deploy to IIS (swap strategy)
+      - name: Deploy to IIS
         run: |
           $source = "${{ github.workspace }}\publish"
           $target = "C:\inetpub\wwwroot\MerceriaBack"
-          $temp   = "C:\inetpub\wwwroot\MerceriaBack_new"
-          $old    = "C:\inetpub\wwwroot\MerceriaBack_old"
 
-          # =========================
-          # LIMPIAR TEMP
-          # =========================
-          if (Test-Path $temp) {
-            Remove-Item $temp -Recurse -Force -ErrorAction SilentlyContinue
+          # crear carpeta si no existe
+          if (!(Test-Path $target)) {
+            New-Item -ItemType Directory -Path $target -Force | Out-Null
           }
 
-          New-Item -ItemType Directory -Path $temp -Force | Out-Null
+          # limpiar contenido sin borrar carpeta (evita locks de rename)
+          Get-ChildItem $target -Recurse -Force -ErrorAction SilentlyContinue |
+            Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
 
-          # =========================
-          # COPIAR BUILD
-          # =========================
-          robocopy $source $temp /MIR /R:2 /W:2 /NFL /NDL /XF appsettings.json
-
-          # =========================
-          # SWAP SEGURO
-          # =========================
-          if (Test-Path $old) {
-            Remove-Item $old -Recurse -Force -ErrorAction SilentlyContinue
-          }
-
-          if (Test-Path $target) {
-            Rename-Item $target "MerceriaBack_old"
-          }
-
-          Rename-Item $temp "MerceriaBack"
-
-          # =========================
-          # LIMPIEZA POSTERIOR
-          # =========================
-          Start-Sleep -Seconds 3
-          Remove-Item $old -Recurse -Force -ErrorAction SilentlyContinue
+          # copiar nuevo deploy
+          robocopy $source $target /MIR /R:2 /W:2 /XF appsettings.json
 
       # =========================
       # START IIS
