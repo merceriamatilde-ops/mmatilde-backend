@@ -16,10 +16,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup .NET SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
+      # ❌ REMOVIDO: setup-dotnet (ya está instalado en el VPS)
 
       # =========================
       # BUILD
@@ -57,7 +54,9 @@ jobs:
           Import-Module WebAdministration
 
           $pool = "MerceriaBack"
-          if ((Get-WebAppPoolState -Name $pool).Value -eq "Started") {
+          $state = Get-WebAppPoolState -Name $pool
+
+          if ($state.Value -eq "Started") {
             Stop-WebAppPool -Name $pool
           }
 
@@ -73,7 +72,7 @@ jobs:
             Remove-Item $temp -Recurse -Force
           }
 
-          New-Item -ItemType Directory -Path $temp -Force
+          New-Item -ItemType Directory -Path $temp -Force | Out-Null
 
           Copy-Item "${{ github.workspace }}\publish\*" $temp -Recurse -Force
 
