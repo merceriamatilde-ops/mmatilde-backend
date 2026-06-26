@@ -19,7 +19,14 @@ public class ProductosController : ControllerBase
 
     [HttpGet]
     [Authorize]
-    public async Task<ActionResult<ProductoAdminListResponse>> Get([FromQuery] string? q, [FromQuery] int? categoriaId, [FromQuery] bool? activo, [FromQuery] int page = 1, [FromQuery] int pageSize = 50)
+    public async Task<ActionResult<ProductoAdminListResponse>> Get(
+        [FromQuery] string? q, 
+        [FromQuery] int? categoriaId, 
+        [FromQuery] int? subcategoriaId,
+        [FromQuery] int? proveedorId,
+        [FromQuery] bool? activo, 
+        [FromQuery] int page = 1, 
+        [FromQuery] int pageSize = 50)
     {
         var query = _db.Productos
             .Include(p => p.Categoria)
@@ -39,7 +46,14 @@ public class ProductosController : ControllerBase
         {
             query = query.Where(p => p.CategoriaId == categoriaId);
         }
-
+        if (subcategoriaId.HasValue)
+        {
+            query = query.Where(p => p.SubcategoriaId == subcategoriaId);
+        }
+        if (proveedorId.HasValue)
+        {
+            query = query.Where(p => p.ProveedorId == proveedorId);
+        }
         if (activo.HasValue)
         {
             query = query.Where(p => p.Activo == activo);
@@ -199,43 +213,31 @@ public class ProductosController : ControllerBase
         var p = await _db.Productos.Include(pr => pr.Imagenes).FirstOrDefaultAsync(pr => pr.Id == id);
         if (p == null) return NotFound();
 
-        var isMakor = p.ProveedorId == 1; // 1 = Makor
+        var codigo = string.IsNullOrWhiteSpace(dto.Codigo) ? p.CodigoMakor : dto.Codigo.Trim();
+        
+        if (codigo != p.CodigoMakor && await _db.Productos.AnyAsync(x => x.CodigoMakor == codigo))
+            return BadRequest(new { message = "Ya existe un producto con ese código." });
 
-        if (isMakor)
+        p.Nombre = dto.Nombre;
+        p.CodigoMakor = codigo;
+        p.CategoriaId = dto.CategoriaId;
+        p.SubcategoriaId = dto.SubcategoriaId;
+        p.Descripcion = dto.Descripcion;
+        p.PrecioMayorista = dto.PrecioBase;
+        p.PrecioMinorista = dto.PrecioBase * 1.21m * 1.70m;
+        p.Destacado = dto.Destacado;
+        p.Activo = dto.Visible;
+
+        if (!string.IsNullOrEmpty(dto.ImagenUrl))
         {
-            // Solo se permite actualizar estado
-            p.Destacado = dto.Destacado;
-            p.Activo = dto.Visible;
-        }
-        else
-        {
-            // Manual
-            var codigo = string.IsNullOrWhiteSpace(dto.Codigo) ? p.CodigoMakor : dto.Codigo.Trim();
-            
-            if (codigo != p.CodigoMakor && await _db.Productos.AnyAsync(x => x.CodigoMakor == codigo))
-                return BadRequest(new { message = "Ya existe un producto con ese código." });
-
-            p.Nombre = dto.Nombre;
-            p.CodigoMakor = codigo;
-            p.CategoriaId = dto.CategoriaId;
-            p.SubcategoriaId = dto.SubcategoriaId;
-            p.Descripcion = dto.Descripcion;
-            p.PrecioMayorista = dto.PrecioBase;
-            p.PrecioMinorista = dto.PrecioBase * 1.21m * 1.70m;
-            p.Destacado = dto.Destacado;
-            p.Activo = dto.Visible;
-
-            if (!string.IsNullOrEmpty(dto.ImagenUrl))
+            var img = p.Imagenes.FirstOrDefault(i => i.EsPrincipal);
+            if (img == null)
             {
-                var img = p.Imagenes.FirstOrDefault(i => i.EsPrincipal);
-                if (img == null)
-                {
-                    p.Imagenes.Add(new Models.ProductoImagen { UrlOriginal = dto.ImagenUrl, EsPrincipal = true });
-                }
-                else
-                {
-                    img.UrlOriginal = dto.ImagenUrl;
-                }
+                p.Imagenes.Add(new Models.ProductoImagen { UrlOriginal = dto.ImagenUrl, EsPrincipal = true });
+            }
+            else
+            {
+                img.UrlOriginal = dto.ImagenUrl;
             }
         }
 

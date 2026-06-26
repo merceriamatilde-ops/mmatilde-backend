@@ -110,13 +110,10 @@ public class SyncService
                         }
                         else
                         {
-                            prod.Nombre = scraped.Nombre;
-                            prod.CategoriaId = cat.Id;
-                            prod.SubcategoriaId = subcat?.Id;
                             if (scraped.Precio.HasValue)
                             {
                                 prod.PrecioMayorista = scraped.Precio;
-                                prod.PrecioMinorista = scraped.Precio;
+                                prod.PrecioMinorista = scraped.Precio; // Considerar regla de negocio futura
                             }
                             prod.UltimaSync = DateTime.UtcNow;
                             prod.UpdatedAt = DateTime.UtcNow;

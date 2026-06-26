@@ -154,8 +154,8 @@ public class AppDbContext : DbContext
             b.HasIndex(e => e.Slug).IsUnique();
             b.Property(e => e.Descripcion).HasColumnName("descripcion");
             b.Property(e => e.Composicion).HasColumnName("composicion").HasMaxLength(500);
-            b.Property(e => e.PrecioMayorista).HasColumnName("precio_mayorista").HasColumnType("numeric(10,2)");
-            b.Property(e => e.PrecioMinorista).HasColumnName("precio_minorista").HasColumnType("numeric(10,2)");
+            b.Property(e => e.PrecioMayorista).HasColumnName("precio_mayorista").HasColumnType("numeric(18,2)");
+            b.Property(e => e.PrecioMinorista).HasColumnName("precio_minorista").HasColumnType("numeric(18,2)");
             b.Property(e => e.DescuentoPorcentaje).HasColumnName("descuento_porcentaje").HasColumnType("numeric(5,2)").HasDefaultValue(0);
             b.Property(e => e.Destacado).HasColumnName("destacado").HasDefaultValue(false);
             b.Property(e => e.Activo).HasColumnName("activo").HasDefaultValue(false);
