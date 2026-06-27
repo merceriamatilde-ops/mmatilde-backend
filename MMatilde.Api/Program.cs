@@ -29,7 +29,7 @@ builder.Configuration.AddJsonFile(
 );
 
 // 3. Config externa VPS (override final)
-var externalConfigPath = @"C:\Deploy\.appsetings\Mmerceria\appsettings.json";
+var externalConfigPath = @"/etc/mmatilde/appsettings.json";
 
 if (File.Exists(externalConfigPath))
 {
