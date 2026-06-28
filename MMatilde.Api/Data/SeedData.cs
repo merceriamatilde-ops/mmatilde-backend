@@ -40,6 +40,17 @@ public static class SeedData
             });
         }
 
+        var manual = await db.Proveedores.FirstOrDefaultAsync(p => p.Slug == "manual");
+        if (manual == null)
+        {
+            db.Proveedores.Add(new Proveedor
+            {
+                Nombre = "Manual / Otros",
+                Slug = "manual",
+                UrlBase = ""
+            });
+        }
+
         await db.SaveChangesAsync();
 
         var categoriasNombres = new[] {
