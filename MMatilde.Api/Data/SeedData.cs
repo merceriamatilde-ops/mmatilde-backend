@@ -14,8 +14,8 @@ public static class SeedData
 
         await db.Database.MigrateAsync();
 
-        var adminEmail = config["AdminEmail"] ?? "admin@mmatilde.com";
-        var adminPassword = config["AdminPassword"] ?? "Admin123!";
+        var adminEmail = string.IsNullOrWhiteSpace(config["AdminEmail"]) ? "admin@mmatilde.com" : config["AdminEmail"];
+        var adminPassword = string.IsNullOrWhiteSpace(config["AdminPassword"]) ? "Admin123!" : config["AdminPassword"];
 
         var admin = await db.Usuarios.FirstOrDefaultAsync(u => u.Email == adminEmail);
         if (admin == null)

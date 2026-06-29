@@ -27,4 +27,5 @@ public class Producto
     public Proveedor? Proveedor { get; set; }
     public ICollection<ProductoVariante> Variantes { get; set; } = new List<ProductoVariante>();
     public ICollection<ProductoImagen> Imagenes { get; set; } = new List<ProductoImagen>();
+    public ICollection<ProductoRelacionado> Relacionados { get; set; } = new List<ProductoRelacionado>();
 }

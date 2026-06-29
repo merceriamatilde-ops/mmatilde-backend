@@ -10,3 +10,6 @@ public record CategoriaUpdateDto(string Nombre);
 
 public record SubcategoriaCreateDto(string Nombre, int CategoriaId);
 public record SubcategoriaUpdateDto(string Nombre);
+
+public record SubcategoriaCatalogoDto(int Id, string Nombre, string Slug);
+public record CategoriaCatalogoResponseDto(int Id, string Nombre, string Slug, string? Icono, List<SubcategoriaCatalogoDto> Subcategorias, List<ProductoCatalogoDto> Productos);

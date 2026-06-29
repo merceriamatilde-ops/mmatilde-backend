@@ -17,6 +17,7 @@ public class AppDbContext : DbContext
     public DbSet<Producto> Productos { get; set; }
     public DbSet<ProductoVariante> ProductoVariantes { get; set; }
     public DbSet<ProductoImagen> ProductoImagenes { get; set; }
+    public DbSet<ProductoRelacionado> ProductoRelacionados { get; set; }
     public DbSet<ReglaPrecio> ReglasPrecio { get; set; }
     public DbSet<SyncLog> SyncLogs { get; set; }
 
@@ -285,6 +286,25 @@ public class AppDbContext : DbContext
              .WithMany(p => p.SyncLogs)
              .HasForeignKey(e => e.ProveedorId)
              .OnDelete(DeleteBehavior.Restrict);
+        });
+        // ProductoRelacionado
+        modelBuilder.Entity<ProductoRelacionado>(b =>
+        {
+            b.ToTable("producto_relacionados");
+            b.HasKey(e => new { e.ProductoPrincipalId, e.ProductoVinculadoId });
+            
+            b.Property(e => e.ProductoPrincipalId).HasColumnName("producto_principal_id");
+            b.Property(e => e.ProductoVinculadoId).HasColumnName("producto_vinculado_id");
+
+            b.HasOne(e => e.ProductoPrincipal)
+             .WithMany(p => p.Relacionados)
+             .HasForeignKey(e => e.ProductoPrincipalId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne(e => e.ProductoVinculado)
+             .WithMany()
+             .HasForeignKey(e => e.ProductoVinculadoId)
+             .OnDelete(DeleteBehavior.Restrict); // Prevent circular cascade
         });
     }
 }

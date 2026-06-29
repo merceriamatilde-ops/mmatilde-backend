@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MMatilde.Api.Data;
 using MMatilde.Api.DTOs;
+using MMatilde.Api.Models;
 
 namespace MMatilde.Api.Controllers;
 
@@ -87,12 +88,35 @@ public class ProductosController : ControllerBase
     {
         var prod = await _db.Productos
             .Include(p => p.Categoria)
+            .Include(p => p.Subcategoria)
             .Include(p => p.Imagenes)
+            .Include(p => p.Variantes).ThenInclude(v => v.Color)
+            .Include(p => p.Relacionados).ThenInclude(r => r.ProductoVinculado).ThenInclude(pv => pv.Imagenes)
             .FirstOrDefaultAsync(p => p.Slug == slug && p.Activo);
 
         if (prod == null) return NotFound();
 
         var imgUrls = prod.Imagenes.OrderByDescending(i => i.EsPrincipal).ThenBy(i => i.Orden).Select(i => i.UrlOriginal!).ToList();
+
+        var variantesDto = prod.Variantes?.Where(v => v.Activo).OrderBy(v => v.Orden).Select(v => new VarianteResponseDto(
+            v.Id,
+            v.ColorId,
+            v.Color?.Nombre,
+            v.Color?.CodigoHex,
+            v.Talle,
+            v.Medida,
+            v.CodigoArticulo,
+            v.Activo
+        )).ToList();
+
+        var relacionadosDto = prod.Relacionados?
+            .Where(r => r.ProductoVinculado.Activo)
+            .Select(r => new ProductoRelacionadoDto(
+            r.ProductoVinculado.Id,
+            r.ProductoVinculado.Nombre,
+            r.ProductoVinculado.Slug,
+            r.ProductoVinculado.Imagenes?.OrderByDescending(i => i.EsPrincipal).FirstOrDefault()?.UrlOriginal
+        )).ToList();
 
         return new ProductoDetalleDto(
             prod.Id,
@@ -101,7 +125,11 @@ public class ProductosController : ControllerBase
             prod.Descripcion,
             prod.Categoria?.Nombre ?? "",
             prod.Categoria?.Slug ?? "",
-            imgUrls
+            prod.Subcategoria?.Nombre,
+            prod.Subcategoria?.Slug,
+            imgUrls,
+            variantesDto,
+            relacionadosDto
         );
     }
 
@@ -150,14 +178,41 @@ public class ProductosController : ControllerBase
 
     [HttpGet("admin/{id}")]
     [Authorize]
-    public async Task<ActionResult<Models.Producto>> GetById(int id)
+    public async Task<ActionResult<object>> GetById(int id)
     {
         var prod = await _db.Productos
             .Include(p => p.Imagenes)
+            .Include(p => p.Variantes)
+            .Include(p => p.Relacionados).ThenInclude(r => r.ProductoVinculado)
             .FirstOrDefaultAsync(p => p.Id == id);
         
         if (prod == null) return NotFound();
-        return prod;
+
+        return new {
+            prod.Id,
+            prod.CodigoMakor,
+            prod.Nombre,
+            prod.Slug,
+            prod.Descripcion,
+            prod.Composicion,
+            prod.PrecioMayorista,
+            prod.PrecioMinorista,
+            prod.DescuentoPorcentaje,
+            prod.Destacado,
+            prod.Activo,
+            prod.CategoriaId,
+            prod.SubcategoriaId,
+            prod.MarcaId,
+            prod.ProveedorId,
+            prod.UltimaSync,
+            prod.Imagenes,
+            prod.Variantes,
+            Relacionados = prod.Relacionados.Select(r => new {
+                id = r.ProductoVinculadoId,
+                nombre = r.ProductoVinculado.Nombre,
+                codigo = r.ProductoVinculado.CodigoMakor
+            })
+        };
     }
 
     [HttpPost]
@@ -201,6 +256,29 @@ public class ProductosController : ControllerBase
             });
         }
 
+        if (dto.Variantes != null)
+        {
+            foreach(var v in dto.Variantes)
+            {
+                p.Variantes.Add(new ProductoVariante {
+                    ColorId = v.ColorId,
+                    Talle = v.Talle,
+                    Medida = v.Medida,
+                    CodigoArticulo = v.CodigoArticulo,
+                    Activo = v.Activo,
+                    Orden = v.Orden
+                });
+            }
+        }
+
+        if (dto.RelacionadosIds != null)
+        {
+            foreach (var relId in dto.RelacionadosIds)
+            {
+                p.Relacionados.Add(new ProductoRelacionado { ProductoVinculadoId = relId });
+            }
+        }
+
         _db.Productos.Add(p);
         await _db.SaveChangesAsync();
         return Ok();
@@ -210,7 +288,12 @@ public class ProductosController : ControllerBase
     [Authorize]
     public async Task<ActionResult> Update(int id, [FromBody] ProductoUpdateDto dto)
     {
-        var p = await _db.Productos.Include(pr => pr.Imagenes).FirstOrDefaultAsync(pr => pr.Id == id);
+        var p = await _db.Productos
+            .Include(pr => pr.Imagenes)
+            .Include(pr => pr.Variantes)
+            .Include(pr => pr.Relacionados)
+            .FirstOrDefaultAsync(pr => pr.Id == id);
+
         if (p == null) return NotFound();
 
         var codigo = string.IsNullOrWhiteSpace(dto.Codigo) ? p.CodigoMakor : dto.Codigo.Trim();
@@ -238,6 +321,50 @@ public class ProductosController : ControllerBase
             else
             {
                 img.UrlOriginal = dto.ImagenUrl;
+            }
+        }
+
+        if (dto.Variantes != null)
+        {
+            var incomingIds = dto.Variantes.Where(v => v.Id.HasValue).Select(v => v.Id.Value).ToList();
+            var toRemove = p.Variantes.Where(v => !incomingIds.Contains(v.Id)).ToList();
+            _db.ProductoVariantes.RemoveRange(toRemove);
+
+            foreach(var v in dto.Variantes)
+            {
+                if (v.Id.HasValue && v.Id.Value > 0)
+                {
+                    var existing = p.Variantes.FirstOrDefault(ev => ev.Id == v.Id.Value);
+                    if (existing != null)
+                    {
+                        existing.ColorId = v.ColorId;
+                        existing.Talle = v.Talle;
+                        existing.Medida = v.Medida;
+                        existing.CodigoArticulo = v.CodigoArticulo;
+                        existing.Activo = v.Activo;
+                        existing.Orden = v.Orden;
+                    }
+                }
+                else
+                {
+                    p.Variantes.Add(new ProductoVariante {
+                        ColorId = v.ColorId,
+                        Talle = v.Talle,
+                        Medida = v.Medida,
+                        CodigoArticulo = v.CodigoArticulo,
+                        Activo = v.Activo,
+                        Orden = v.Orden
+                    });
+                }
+            }
+        }
+
+        if (dto.RelacionadosIds != null)
+        {
+            _db.Set<ProductoRelacionado>().RemoveRange(p.Relacionados);
+            foreach(var relId in dto.RelacionadosIds)
+            {
+                p.Relacionados.Add(new ProductoRelacionado { ProductoVinculadoId = relId });
             }
         }
 

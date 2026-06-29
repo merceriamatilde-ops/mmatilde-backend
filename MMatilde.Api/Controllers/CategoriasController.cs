@@ -48,14 +48,26 @@ public class CategoriasController : ControllerBase
     }
 
     [HttpGet("{slug}/productos")]
-    public async Task<ActionResult<List<ProductoCatalogoDto>>> GetProductos(string slug)
+    public async Task<ActionResult<CategoriaCatalogoResponseDto>> GetProductos(string slug, [FromQuery] string? sub)
     {
-        var cat = await _db.Categorias.FirstOrDefaultAsync(c => c.Slug == slug && c.Activo);
+        var cat = await _db.Categorias
+            .FirstOrDefaultAsync(c => c.Slug == slug && c.Activo);
+            
         if (cat == null) return NotFound();
 
-        var prods = await _db.Productos
+        var query = _db.Productos
             .Include(p => p.Imagenes)
-            .Where(p => p.CategoriaId == cat.Id && p.Activo)
+            .Where(p => p.CategoriaId == cat.Id && p.Activo);
+
+        Console.WriteLine($"\n--- GET PRODUCTOS --- SLUG: {slug}, SUB: '{sub}'\n");
+
+        if (!string.IsNullOrWhiteSpace(sub))
+        {
+            Console.WriteLine($"--- APLICANDO FILTRO SUB: {sub}");
+            query = query.Where(p => p.Subcategoria != null && p.Subcategoria.Slug == sub);
+        }
+
+        var prods = await query
             .OrderByDescending(p => p.Id)
             .Select(p => new ProductoCatalogoDto(
                 p.Id,
@@ -66,7 +78,20 @@ public class CategoriasController : ControllerBase
             ))
             .ToListAsync();
 
-        return prods;
+        var subs = await _db.Subcategorias
+            .Where(s => s.CategoriaId == cat.Id && _db.Productos.Any(p => p.SubcategoriaId == s.Id && p.Activo))
+            .OrderBy(s => s.Orden)
+            .Select(s => new SubcategoriaCatalogoDto(s.Id, s.Nombre, s.Slug))
+            .ToListAsync();
+
+        return new CategoriaCatalogoResponseDto(
+            cat.Id,
+            cat.Nombre,
+            cat.Slug,
+            cat.Icono,
+            subs,
+            prods
+        );
     }
 
     [HttpGet("admin")]
