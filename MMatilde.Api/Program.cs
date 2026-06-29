@@ -5,6 +5,7 @@ using Microsoft.IdentityModel.Tokens;
 using MMatilde.Api.Data;
 using MMatilde.Api.Services;
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -84,9 +85,16 @@ builder.Services.AddScoped<SyncService>();
 
 //
 // =========================
-// CONTROLLERS
+// CONTROLLERS & PROXY
 // =========================
 //
+
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -144,6 +152,8 @@ var app = builder.Build();
 // PIPELINE
 // =========================
 //
+
+app.UseForwardedHeaders();
 
 if (app.Environment.IsDevelopment())
 {
