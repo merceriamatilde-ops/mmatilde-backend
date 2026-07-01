@@ -3,6 +3,7 @@ using System;
 using MMatilde.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MMatilde.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260701172920_AddIaEjemplos")]
+    partial class AddIaEjemplos
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -224,11 +227,6 @@ namespace MMatilde.Api.Migrations
                         .HasColumnType("character varying(20)")
                         .HasColumnName("evaluacion");
 
-                    b.Property<string>("IdempotencyKey")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("idempotency_key");
-
                     b.Property<string>("NotaCorreccion")
                         .HasColumnType("text")
                         .HasColumnName("nota_correccion");
@@ -262,9 +260,6 @@ namespace MMatilde.Api.Migrations
                     b.HasIndex("CreadoEn");
 
                     b.HasIndex("Evaluacion");
-
-                    b.HasIndex("IdempotencyKey")
-                        .IsUnique();
 
                     b.ToTable("ia_consultas", (string)null);
                 });

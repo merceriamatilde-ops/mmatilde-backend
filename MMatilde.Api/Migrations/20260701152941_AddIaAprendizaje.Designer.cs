@@ -3,6 +3,7 @@ using System;
 using MMatilde.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MMatilde.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260701152941_AddIaAprendizaje")]
+    partial class AddIaAprendizaje
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -224,11 +227,6 @@ namespace MMatilde.Api.Migrations
                         .HasColumnType("character varying(20)")
                         .HasColumnName("evaluacion");
 
-                    b.Property<string>("IdempotencyKey")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("idempotency_key");
-
                     b.Property<string>("NotaCorreccion")
                         .HasColumnType("text")
                         .HasColumnName("nota_correccion");
@@ -263,65 +261,7 @@ namespace MMatilde.Api.Migrations
 
                     b.HasIndex("Evaluacion");
 
-                    b.HasIndex("IdempotencyKey")
-                        .IsUnique();
-
                     b.ToTable("ia_consultas", (string)null);
-                });
-
-            modelBuilder.Entity("MMatilde.Api.Models.IaEjemplo", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<bool>("Activa")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(true)
-                        .HasColumnName("activa");
-
-                    b.Property<DateTime>("CreadoEn")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("creado_en")
-                        .HasDefaultValueSql("now()");
-
-                    b.Property<string>("Descripcion")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("descripcion");
-
-                    b.Property<string>("Disparadores")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("disparadores");
-
-                    b.Property<string>("ImagenUrl")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("imagen_url");
-
-                    b.Property<string>("RespuestaJson")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("respuesta_json");
-
-                    b.Property<string>("Titulo")
-                        .IsRequired()
-                        .HasMaxLength(300)
-                        .HasColumnType("character varying(300)")
-                        .HasColumnName("titulo");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Activa");
-
-                    b.ToTable("ia_ejemplos", (string)null);
                 });
 
             modelBuilder.Entity("MMatilde.Api.Models.IaReglaAprendida", b =>

@@ -20,6 +20,9 @@ public class AppDbContext : DbContext
     public DbSet<ProductoRelacionado> ProductoRelacionados { get; set; }
     public DbSet<ReglaPrecio> ReglasPrecio { get; set; }
     public DbSet<SyncLog> SyncLogs { get; set; }
+    public DbSet<IaConsulta> IaConsultas { get; set; }
+    public DbSet<IaReglaAprendida> IaReglasAprendidas { get; set; }
+    public DbSet<IaEjemplo> IaEjemplos { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -305,6 +308,61 @@ public class AppDbContext : DbContext
              .WithMany()
              .HasForeignKey(e => e.ProductoVinculadoId)
              .OnDelete(DeleteBehavior.Restrict); // Prevent circular cascade
+        });
+
+        modelBuilder.Entity<IaConsulta>(b =>
+        {
+            b.ToTable("ia_consultas");
+            b.HasKey(e => e.Id);
+            b.Property(e => e.Id).HasColumnName("id");
+            b.Property(e => e.Proyecto).HasColumnName("proyecto").HasMaxLength(500).IsRequired();
+            b.Property(e => e.Tecnica).HasColumnName("tecnica").HasMaxLength(200);
+            b.Property(e => e.ContextoJson).HasColumnName("contexto_json").HasColumnType("jsonb").IsRequired();
+            b.Property(e => e.ResultadoJson).HasColumnName("resultado_json").HasColumnType("jsonb").IsRequired();
+            b.Property(e => e.ProductosJson).HasColumnName("productos_json").HasColumnType("jsonb");
+            b.Property(e => e.Evaluacion).HasColumnName("evaluacion").HasMaxLength(20);
+            b.Property(e => e.NotaCorreccion).HasColumnName("nota_correccion");
+            b.Property(e => e.CorreccionEsperada).HasColumnName("correccion_esperada");
+            b.Property(e => e.IdempotencyKey).HasColumnName("idempotency_key").HasMaxLength(64);
+            b.Property(e => e.CreadoEn).HasColumnName("creado_en").HasDefaultValueSql("now()");
+            b.Property(e => e.RevisadoEn).HasColumnName("revisado_en");
+            b.HasIndex(e => e.CreadoEn);
+            b.HasIndex(e => e.Evaluacion);
+            b.HasIndex(e => e.IdempotencyKey).IsUnique();
+        });
+
+        modelBuilder.Entity<IaReglaAprendida>(b =>
+        {
+            b.ToTable("ia_reglas_aprendidas");
+            b.HasKey(e => e.Id);
+            b.Property(e => e.Id).HasColumnName("id");
+            b.Property(e => e.Titulo).HasColumnName("titulo").HasMaxLength(300).IsRequired();
+            b.Property(e => e.Disparadores).HasColumnName("disparadores").HasMaxLength(500).IsRequired();
+            b.Property(e => e.Regla).HasColumnName("regla").IsRequired();
+            b.Property(e => e.Activa).HasColumnName("activa").HasDefaultValue(true);
+            b.Property(e => e.ConsultaOrigenId).HasColumnName("consulta_origen_id");
+            b.Property(e => e.CreadoEn).HasColumnName("creado_en").HasDefaultValueSql("now()");
+            b.HasIndex(e => e.Activa);
+
+            b.HasOne(e => e.ConsultaOrigen)
+             .WithMany()
+             .HasForeignKey(e => e.ConsultaOrigenId)
+             .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<IaEjemplo>(b =>
+        {
+            b.ToTable("ia_ejemplos");
+            b.HasKey(e => e.Id);
+            b.Property(e => e.Id).HasColumnName("id");
+            b.Property(e => e.Titulo).HasColumnName("titulo").HasMaxLength(300).IsRequired();
+            b.Property(e => e.Disparadores).HasColumnName("disparadores").HasMaxLength(500).IsRequired();
+            b.Property(e => e.Descripcion).HasColumnName("descripcion").IsRequired();
+            b.Property(e => e.RespuestaJson).HasColumnName("respuesta_json").HasColumnType("jsonb").IsRequired();
+            b.Property(e => e.ImagenUrl).HasColumnName("imagen_url").HasMaxLength(500);
+            b.Property(e => e.Activa).HasColumnName("activa").HasDefaultValue(true);
+            b.Property(e => e.CreadoEn).HasColumnName("creado_en").HasDefaultValueSql("now()");
+            b.HasIndex(e => e.Activa);
         });
     }
 }
