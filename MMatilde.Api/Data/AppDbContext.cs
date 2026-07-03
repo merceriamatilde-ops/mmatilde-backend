@@ -154,9 +154,12 @@ public class AppDbContext : DbContext
             b.Property(e => e.CodigoMakor).HasColumnName("codigo_makor").HasMaxLength(50).IsRequired();
             b.HasIndex(e => e.CodigoMakor).IsUnique();
             b.Property(e => e.Nombre).HasColumnName("nombre").HasMaxLength(500).IsRequired();
+            b.Property(e => e.NombrePublico).HasColumnName("nombre_publico").HasMaxLength(500);
             b.Property(e => e.Slug).HasColumnName("slug").HasMaxLength(550).IsRequired();
             b.HasIndex(e => e.Slug).IsUnique();
             b.Property(e => e.Descripcion).HasColumnName("descripcion");
+            b.Property(e => e.DescripcionPublica).HasColumnName("descripcion_publica");
+            b.Property(e => e.ImagenPublicaUrl).HasColumnName("imagen_publica_url").HasMaxLength(1000);
             b.Property(e => e.Composicion).HasColumnName("composicion").HasMaxLength(500);
             b.Property(e => e.PrecioMayorista).HasColumnName("precio_mayorista").HasColumnType("numeric(18,2)");
             b.Property(e => e.PrecioMinorista).HasColumnName("precio_minorista").HasColumnType("numeric(18,2)");
@@ -241,6 +244,7 @@ public class AppDbContext : DbContext
             b.Property(e => e.AltText).HasColumnName("alt_text").HasMaxLength(300);
             b.Property(e => e.Orden).HasColumnName("orden").HasDefaultValue(0);
             b.Property(e => e.EsPrincipal).HasColumnName("es_principal").HasDefaultValue(false);
+            b.Property(e => e.EsDeProveedor).HasColumnName("es_de_proveedor").HasDefaultValue(false);
             b.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
 
             b.HasOne(e => e.Producto)

@@ -5,8 +5,11 @@ public class Producto
     public int Id { get; set; }
     public string CodigoMakor { get; set; } = string.Empty;
     public string Nombre { get; set; } = string.Empty;
+    public string? NombrePublico { get; set; }
     public string Slug { get; set; } = string.Empty;
     public string? Descripcion { get; set; }
+    public string? DescripcionPublica { get; set; }
+    public string? ImagenPublicaUrl { get; set; }
     public string? Composicion { get; set; }
     public decimal? PrecioMayorista { get; set; }
     public decimal? PrecioMinorista { get; set; }

@@ -11,5 +11,5 @@ public record ToggleRequest(bool Value);
 public record BulkToggleRequest(List<int> Ids, bool Activo);
 
 public record ProductoCreateDto(string Nombre, string? Codigo, int CategoriaId, int? SubcategoriaId, string? Descripcion, decimal? PrecioBase, bool Destacado, bool Visible, string? ImagenUrl, List<VarianteDto>? Variantes = null, List<int>? RelacionadosIds = null);
-public record ProductoUpdateDto(string Nombre, string? Codigo, int CategoriaId, int? SubcategoriaId, string? Descripcion, decimal? PrecioBase, bool Destacado, bool Visible, string? ImagenUrl, List<VarianteDto>? Variantes = null, List<int>? RelacionadosIds = null);
+public record ProductoUpdateDto(string Nombre, string? Codigo, int CategoriaId, int? SubcategoriaId, string? Descripcion, decimal? PrecioBase, bool Destacado, bool Visible, string? ImagenUrl, string? NombrePublico = null, string? DescripcionPublica = null, string? ImagenPublicaUrl = null, List<VarianteDto>? Variantes = null, List<int>? RelacionadosIds = null);
 public record VarianteDto(int? Id, int? ColorId, string? Talle, string? Medida, string? CodigoArticulo, bool Activo, int Orden);

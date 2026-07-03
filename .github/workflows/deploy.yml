@@ -35,6 +35,25 @@ jobs:
         target: "/var/www/mmatilde-backend"
         strip_components: 1
 
+    - name: Run Database Migrations
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USERNAME }}
+        key: ${{ secrets.VPS_SSH_KEY }}
+        port: ${{ secrets.VPS_PORT }}
+        script: |
+          set -euo pipefail
+          CONN=$(python3 -c "import json; print(json.load(open('/etc/mmatilde/appsettings.json'))['ConnectionStrings']['DefaultConnection'])")
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          if ! command -v dotnet-ef >/dev/null 2>&1; then
+            dotnet tool install --global dotnet-ef --version 8.0.0
+          fi
+          dotnet ef database update \
+            --assembly /var/www/mmatilde-backend/MMatilde.Api.dll \
+            --startup-assembly /var/www/mmatilde-backend/MMatilde.Api.dll \
+            --connection "$CONN"
+
     - name: Restart Systemd Service
       uses: appleboy/ssh-action@master
       with:

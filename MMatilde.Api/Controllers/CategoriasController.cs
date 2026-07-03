@@ -72,9 +72,20 @@ public class CategoriasController : ControllerBase
             .Select(p => new ProductoCatalogoDto(
                 p.Id,
                 p.Slug,
-                p.Nombre,
+                p.NombrePublico != null && p.NombrePublico != "" ? p.NombrePublico : p.Nombre,
                 cat.Nombre,
-                p.Imagenes.OrderByDescending(i => i.EsPrincipal).ThenBy(i => i.Orden).Select(i => i.UrlOriginal).FirstOrDefault()
+                p.ImagenPublicaUrl ?? p.Imagenes
+                    .OrderByDescending(i => i.EsPrincipal)
+                    .ThenBy(i => i.Orden)
+                    .Where(i => !i.EsDeProveedor)
+                    .Select(i => i.UrlOriginal)
+                    .FirstOrDefault()
+                    ?? p.Imagenes
+                    .OrderByDescending(i => i.EsPrincipal)
+                    .ThenBy(i => i.Orden)
+                    .Where(i => i.EsDeProveedor)
+                    .Select(i => i.UrlOriginal)
+                    .FirstOrDefault()
             ))
             .ToListAsync();
 

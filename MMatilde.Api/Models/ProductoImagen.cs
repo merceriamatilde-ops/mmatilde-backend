@@ -10,6 +10,7 @@ public class ProductoImagen
     public string? AltText { get; set; }
     public int Orden { get; set; } = 0;
     public bool EsPrincipal { get; set; } = false;
+    public bool EsDeProveedor { get; set; } = false;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public Producto? Producto { get; set; }

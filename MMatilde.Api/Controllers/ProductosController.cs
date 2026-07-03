@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using MMatilde.Api.Data;
 using MMatilde.Api.DTOs;
 using MMatilde.Api.Models;
+using MMatilde.Api.Helpers;
 
 namespace MMatilde.Api.Controllers;
 
@@ -38,6 +39,7 @@ public class ProductosController : ControllerBase
         {
             query = query.Where(p => 
                 EF.Functions.ILike(p.Nombre, $"%{q}%") || 
+                (p.NombrePublico != null && EF.Functions.ILike(p.NombrePublico, $"%{q}%")) ||
                 EF.Functions.ILike(p.CodigoMakor, $"%{q}%") ||
                 (p.Categoria != null && EF.Functions.ILike(p.Categoria.Nombre, $"%{q}%")) ||
                 (p.Subcategoria != null && EF.Functions.ILike(p.Subcategoria.Nombre, $"%{q}%")));
@@ -70,7 +72,7 @@ public class ProductosController : ControllerBase
             .Select(p => new ProductoAdminDto(
                 p.Id,
                 p.CodigoMakor,
-                p.Nombre,
+                p.NombrePublico != null && p.NombrePublico != "" ? p.NombrePublico : p.Nombre,
                 p.Categoria != null ? (p.Subcategoria != null ? p.Categoria.Nombre + " > " + p.Subcategoria.Nombre : p.Categoria.Nombre) : "",
                 p.PrecioMayorista,
                 p.PrecioMinorista,
@@ -96,7 +98,7 @@ public class ProductosController : ControllerBase
 
         if (prod == null) return NotFound();
 
-        var imgUrls = prod.Imagenes.OrderByDescending(i => i.EsPrincipal).ThenBy(i => i.Orden).Select(i => i.UrlOriginal!).ToList();
+        var imgUrls = ProductoDisplay.ImagenesPublicas(prod);
 
         var variantesDto = prod.Variantes?.Where(v => v.Activo).OrderBy(v => v.Orden).Select(v => new VarianteResponseDto(
             v.Id,
@@ -113,16 +115,16 @@ public class ProductosController : ControllerBase
             .Where(r => r.ProductoVinculado.Activo)
             .Select(r => new ProductoRelacionadoDto(
             r.ProductoVinculado.Id,
-            r.ProductoVinculado.Nombre,
+            ProductoDisplay.NombrePublico(r.ProductoVinculado),
             r.ProductoVinculado.Slug,
-            r.ProductoVinculado.Imagenes?.OrderByDescending(i => i.EsPrincipal).FirstOrDefault()?.UrlOriginal
+            ProductoDisplay.ImagenPublica(r.ProductoVinculado)
         )).ToList();
 
         return new ProductoDetalleDto(
             prod.Id,
             prod.Slug,
-            prod.Nombre,
-            prod.Descripcion,
+            ProductoDisplay.NombrePublico(prod),
+            ProductoDisplay.DescripcionPublica(prod),
             prod.Categoria?.Nombre ?? "",
             prod.Categoria?.Slug ?? "",
             prod.Subcategoria?.Nombre,
@@ -184,6 +186,7 @@ public class ProductosController : ControllerBase
             .Include(p => p.Imagenes)
             .Include(p => p.Variantes)
             .Include(p => p.Relacionados).ThenInclude(r => r.ProductoVinculado)
+            .Include(p => p.Proveedor)
             .FirstOrDefaultAsync(p => p.Id == id);
         
         if (prod == null) return NotFound();
@@ -192,8 +195,12 @@ public class ProductosController : ControllerBase
             prod.Id,
             prod.CodigoMakor,
             prod.Nombre,
+            nombrePublico = prod.NombrePublico,
             prod.Slug,
             prod.Descripcion,
+            descripcionPublica = prod.DescripcionPublica,
+            imagenPublicaUrl = prod.ImagenPublicaUrl,
+            imagenProveedorUrl = ProductoDisplay.ImagenProveedor(prod),
             prod.Composicion,
             prod.PrecioMayorista,
             prod.PrecioMinorista,
@@ -292,35 +299,50 @@ public class ProductosController : ControllerBase
             .Include(pr => pr.Imagenes)
             .Include(pr => pr.Variantes)
             .Include(pr => pr.Relacionados)
+            .Include(pr => pr.Proveedor)
             .FirstOrDefaultAsync(pr => pr.Id == id);
 
         if (p == null) return NotFound();
 
-        var codigo = string.IsNullOrWhiteSpace(dto.Codigo) ? p.CodigoMakor : dto.Codigo.Trim();
-        
-        if (codigo != p.CodigoMakor && await _db.Productos.AnyAsync(x => x.CodigoMakor == codigo))
-            return BadRequest(new { message = "Ya existe un producto con ese código." });
+        var isMakor = p.Proveedor?.Slug == "makor";
 
-        p.Nombre = dto.Nombre;
-        p.CodigoMakor = codigo;
-        p.CategoriaId = dto.CategoriaId;
-        p.SubcategoriaId = dto.SubcategoriaId;
-        p.Descripcion = dto.Descripcion;
-        p.PrecioMayorista = dto.PrecioBase;
-        p.PrecioMinorista = dto.PrecioBase * 1.21m * 1.70m;
-        p.Destacado = dto.Destacado;
-        p.Activo = dto.Visible;
-
-        if (!string.IsNullOrEmpty(dto.ImagenUrl))
+        if (isMakor)
         {
-            var img = p.Imagenes.FirstOrDefault(i => i.EsPrincipal);
-            if (img == null)
+            p.NombrePublico = string.IsNullOrWhiteSpace(dto.NombrePublico) ? null : dto.NombrePublico.Trim();
+            p.DescripcionPublica = string.IsNullOrWhiteSpace(dto.DescripcionPublica) ? null : dto.DescripcionPublica.Trim();
+            p.ImagenPublicaUrl = string.IsNullOrWhiteSpace(dto.ImagenPublicaUrl) ? null : dto.ImagenPublicaUrl.Trim();
+            p.Destacado = dto.Destacado;
+            p.Activo = dto.Visible;
+            p.UpdatedAt = DateTime.UtcNow;
+        }
+        else
+        {
+            var codigo = string.IsNullOrWhiteSpace(dto.Codigo) ? p.CodigoMakor : dto.Codigo.Trim();
+            
+            if (codigo != p.CodigoMakor && await _db.Productos.AnyAsync(x => x.CodigoMakor == codigo))
+                return BadRequest(new { message = "Ya existe un producto con ese código." });
+
+            p.Nombre = dto.Nombre;
+            p.CodigoMakor = codigo;
+            p.CategoriaId = dto.CategoriaId;
+            p.SubcategoriaId = dto.SubcategoriaId;
+            p.Descripcion = dto.Descripcion;
+            p.PrecioMayorista = dto.PrecioBase;
+            p.PrecioMinorista = dto.PrecioBase * 1.21m * 1.70m;
+            p.Destacado = dto.Destacado;
+            p.Activo = dto.Visible;
+
+            if (!string.IsNullOrEmpty(dto.ImagenUrl))
             {
-                p.Imagenes.Add(new Models.ProductoImagen { UrlOriginal = dto.ImagenUrl, EsPrincipal = true });
-            }
-            else
-            {
-                img.UrlOriginal = dto.ImagenUrl;
+                var img = p.Imagenes.FirstOrDefault(i => i.EsPrincipal && !i.EsDeProveedor);
+                if (img == null)
+                {
+                    p.Imagenes.Add(new Models.ProductoImagen { UrlOriginal = dto.ImagenUrl, EsPrincipal = true, EsDeProveedor = false });
+                }
+                else
+                {
+                    img.UrlOriginal = dto.ImagenUrl;
+                }
             }
         }
 

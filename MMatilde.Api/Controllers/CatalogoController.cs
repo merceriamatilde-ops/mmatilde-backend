@@ -24,7 +24,7 @@ public class CatalogoController : ControllerBase
             .Where(c => c.Activo && c.Productos.Any(p => p.Activo))
             .OrderBy(c => c.Orden)
             .Take(8)
-            .Select(c => new CategoriaCardDto(c.Nombre, c.Icono ?? "", c.Slug))
+            .Select(c => new CategoriaCardDto(c.Nombre, c.Icono ?? "", c.Slug, c.Productos.Count(p => p.Activo)))
             .ToListAsync();
 
         var prods = await _db.Productos
@@ -36,9 +36,20 @@ public class CatalogoController : ControllerBase
             .Select(p => new ProductoCatalogoDto(
                 p.Id,
                 p.Slug,
-                p.Nombre,
+                p.NombrePublico != null && p.NombrePublico != "" ? p.NombrePublico : p.Nombre,
                 p.Categoria != null ? p.Categoria.Nombre : "",
-                p.Imagenes.OrderByDescending(i => i.EsPrincipal).ThenBy(i => i.Orden).Select(i => i.UrlOriginal).FirstOrDefault()
+                p.ImagenPublicaUrl ?? p.Imagenes
+                    .OrderByDescending(i => i.EsPrincipal)
+                    .ThenBy(i => i.Orden)
+                    .Where(i => !i.EsDeProveedor)
+                    .Select(i => i.UrlOriginal)
+                    .FirstOrDefault()
+                    ?? p.Imagenes
+                    .OrderByDescending(i => i.EsPrincipal)
+                    .ThenBy(i => i.Orden)
+                    .Where(i => i.EsDeProveedor)
+                    .Select(i => i.UrlOriginal)
+                    .FirstOrDefault()
             ))
             .ToListAsync();
 
@@ -53,15 +64,29 @@ public class CatalogoController : ControllerBase
         var prods = await _db.Productos
             .Include(p => p.Categoria)
             .Include(p => p.Imagenes)
-            .Where(p => p.Activo && (EF.Functions.ILike(p.Nombre, $"%{q}%") || EF.Functions.ILike(p.CodigoMakor, $"%{q}%")))
+            .Where(p => p.Activo && (
+                EF.Functions.ILike(p.Nombre, $"%{q}%") ||
+                (p.NombrePublico != null && EF.Functions.ILike(p.NombrePublico, $"%{q}%")) ||
+                EF.Functions.ILike(p.CodigoMakor, $"%{q}%")))
             .OrderByDescending(p => p.Id)
             .Take(20)
             .Select(p => new ProductoCatalogoDto(
                 p.Id,
                 p.Slug,
-                p.Nombre,
+                p.NombrePublico != null && p.NombrePublico != "" ? p.NombrePublico : p.Nombre,
                 p.Categoria != null ? p.Categoria.Nombre : "",
-                p.Imagenes.OrderByDescending(i => i.EsPrincipal).ThenBy(i => i.Orden).Select(i => i.UrlOriginal).FirstOrDefault()
+                p.ImagenPublicaUrl ?? p.Imagenes
+                    .OrderByDescending(i => i.EsPrincipal)
+                    .ThenBy(i => i.Orden)
+                    .Where(i => !i.EsDeProveedor)
+                    .Select(i => i.UrlOriginal)
+                    .FirstOrDefault()
+                    ?? p.Imagenes
+                    .OrderByDescending(i => i.EsPrincipal)
+                    .ThenBy(i => i.Orden)
+                    .Where(i => i.EsDeProveedor)
+                    .Select(i => i.UrlOriginal)
+                    .FirstOrDefault()
             ))
             .ToListAsync();
 

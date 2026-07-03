@@ -110,10 +110,11 @@ public class SyncService
                         }
                         else
                         {
+                            prod.Nombre = scraped.Nombre;
                             if (scraped.Precio.HasValue)
                             {
                                 prod.PrecioMayorista = scraped.Precio;
-                                prod.PrecioMinorista = scraped.Precio; // Considerar regla de negocio futura
+                                prod.PrecioMinorista = scraped.Precio;
                             }
                             prod.UltimaSync = DateTime.UtcNow;
                             prod.UpdatedAt = DateTime.UtcNow;
@@ -124,18 +125,24 @@ public class SyncService
 
                         if (!string.IsNullOrEmpty(scraped.ImagenUrl))
                         {
-                            var img = await _db.ProductoImagenes.FirstOrDefaultAsync(i => i.ProductoId == prod.Id && i.UrlOriginal == scraped.ImagenUrl);
+                            var img = await _db.ProductoImagenes
+                                .FirstOrDefaultAsync(i => i.ProductoId == prod.Id && i.EsDeProveedor);
                             if (img == null)
                             {
                                 img = new ProductoImagen
                                 {
                                     ProductoId = prod.Id,
                                     UrlOriginal = scraped.ImagenUrl,
-                                    EsPrincipal = true
+                                    EsPrincipal = true,
+                                    EsDeProveedor = true
                                 };
                                 _db.ProductoImagenes.Add(img);
-                                await _db.SaveChangesAsync();
                             }
+                            else
+                            {
+                                img.UrlOriginal = scraped.ImagenUrl;
+                            }
+                            await _db.SaveChangesAsync();
                         }
                     }
                     catch (Exception ex)
