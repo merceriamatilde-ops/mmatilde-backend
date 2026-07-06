@@ -18,11 +18,16 @@ public class AppDbContext : DbContext
     public DbSet<ProductoVariante> ProductoVariantes { get; set; }
     public DbSet<ProductoImagen> ProductoImagenes { get; set; }
     public DbSet<ProductoRelacionado> ProductoRelacionados { get; set; }
+    public DbSet<ProductoPresentacion> ProductoPresentaciones { get; set; }
+    public DbSet<Tag> Tags { get; set; }
+    public DbSet<ProductoTag> ProductoTags { get; set; }
     public DbSet<ReglaPrecio> ReglasPrecio { get; set; }
     public DbSet<SyncLog> SyncLogs { get; set; }
     public DbSet<IaConsulta> IaConsultas { get; set; }
     public DbSet<IaReglaAprendida> IaReglasAprendidas { get; set; }
     public DbSet<IaEjemplo> IaEjemplos { get; set; }
+    public DbSet<Venta> Ventas { get; set; }
+    public DbSet<VentaLinea> VentaLineas { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -164,6 +169,18 @@ public class AppDbContext : DbContext
             b.Property(e => e.PrecioMayorista).HasColumnName("precio_mayorista").HasColumnType("numeric(18,2)");
             b.Property(e => e.PrecioMinorista).HasColumnName("precio_minorista").HasColumnType("numeric(18,2)");
             b.Property(e => e.DescuentoPorcentaje).HasColumnName("descuento_porcentaje").HasColumnType("numeric(5,2)").HasDefaultValue(0);
+            b.Property(e => e.UnidadBase).HasColumnName("unidad_base").HasConversion<string>();
+            b.Property(e => e.CantidadUnidadCompra).HasColumnName("cantidad_unidad_compra").HasColumnType("numeric(18,6)");
+            b.Property(e => e.EtiquetaUnidadCompra).HasColumnName("etiqueta_unidad_compra").HasMaxLength(100);
+            b.Property(e => e.UnidadCompraAutoDetectada).HasColumnName("unidad_compra_auto_detectada").HasDefaultValue(false);
+            b.Property(e => e.ModoPrecio).HasColumnName("modo_precio").HasConversion<string>().HasDefaultValue(ModoPrecio.AUTOMATICO);
+            b.Property(e => e.IvaPorcentajeProducto).HasColumnName("iva_porcentaje_producto").HasColumnType("numeric(5,2)");
+            b.Property(e => e.MargenPorcentajeProducto).HasColumnName("margen_porcentaje_producto").HasColumnType("numeric(5,2)");
+            b.Property(e => e.ModoOrigenEconomico).HasColumnName("modo_origen_economico").HasConversion<string>().HasDefaultValue(ModoOrigenEconomico.REVENTA);
+            b.Property(e => e.ComisionTiendaPorcentaje).HasColumnName("comision_tienda_porcentaje").HasColumnType("numeric(5,2)");
+            b.Property(e => e.TitularConsignacion).HasColumnName("titular_consignacion").HasMaxLength(200);
+            b.Property(e => e.CostoMateriales).HasColumnName("costo_materiales").HasColumnType("numeric(18,2)");
+            b.Property(e => e.ManoObra).HasColumnName("mano_obra").HasColumnType("numeric(18,2)");
             b.Property(e => e.Destacado).HasColumnName("destacado").HasDefaultValue(false);
             b.Property(e => e.Activo).HasColumnName("activo").HasDefaultValue(false);
             b.Property(e => e.CategoriaId).HasColumnName("categoria_id");
@@ -256,6 +273,69 @@ public class AppDbContext : DbContext
              .WithMany(v => v.Imagenes)
              .HasForeignKey(e => e.VarianteId)
              .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // ProductoPresentaciones
+        modelBuilder.Entity<ProductoPresentacion>(b =>
+        {
+            b.ToTable("producto_presentaciones");
+            b.HasKey(e => e.Id);
+            b.Property(e => e.Id).HasColumnName("id");
+            b.Property(e => e.ProductoId).HasColumnName("producto_id");
+            b.Property(e => e.Nombre).HasColumnName("nombre").HasMaxLength(150).IsRequired();
+            b.Property(e => e.CantidadUnidadBase).HasColumnName("cantidad_unidad_base").HasColumnType("numeric(18,6)").HasDefaultValue(1m);
+            b.Property(e => e.PrecioVenta).HasColumnName("precio_venta").HasColumnType("numeric(18,2)");
+            b.Property(e => e.MargenPorcentaje).HasColumnName("margen_porcentaje").HasColumnType("numeric(5,2)");
+            b.Property(e => e.EsDefault).HasColumnName("es_default").HasDefaultValue(false);
+            b.Property(e => e.Activo).HasColumnName("activo").HasDefaultValue(true);
+            b.Property(e => e.Orden).HasColumnName("orden").HasDefaultValue(0);
+            b.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            b.Property(e => e.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
+
+            b.HasIndex(e => e.ProductoId);
+
+            b.HasOne(e => e.Producto)
+             .WithMany(p => p.Presentaciones)
+             .HasForeignKey(e => e.ProductoId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Tags
+        modelBuilder.Entity<Tag>(b =>
+        {
+            b.ToTable("tags");
+            b.HasKey(e => e.Id);
+            b.Property(e => e.Id).HasColumnName("id");
+            b.Property(e => e.Nombre).HasColumnName("nombre").HasMaxLength(120).IsRequired();
+            b.HasIndex(e => e.Nombre).IsUnique();
+            b.Property(e => e.Slug).HasColumnName("slug").HasMaxLength(120).IsRequired();
+            b.HasIndex(e => e.Slug).IsUnique();
+            b.Property(e => e.Descripcion).HasColumnName("descripcion").HasMaxLength(500);
+            b.Property(e => e.ColorHex).HasColumnName("color_hex").HasMaxLength(7);
+            b.Property(e => e.VisibleEnCatalogo).HasColumnName("visible_en_catalogo").HasDefaultValue(true);
+            b.Property(e => e.Orden).HasColumnName("orden").HasDefaultValue(0);
+            b.Property(e => e.Activo).HasColumnName("activo").HasDefaultValue(true);
+            b.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            b.Property(e => e.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
+        });
+
+        modelBuilder.Entity<ProductoTag>(b =>
+        {
+            b.ToTable("producto_tags");
+            b.HasKey(e => new { e.ProductoId, e.TagId });
+            b.Property(e => e.ProductoId).HasColumnName("producto_id");
+            b.Property(e => e.TagId).HasColumnName("tag_id");
+            b.HasIndex(e => e.TagId);
+
+            b.HasOne(e => e.Producto)
+             .WithMany(p => p.Tags)
+             .HasForeignKey(e => e.ProductoId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne(e => e.Tag)
+             .WithMany(t => t.Productos)
+             .HasForeignKey(e => e.TagId)
+             .OnDelete(DeleteBehavior.Cascade);
         });
 
         // ReglasPrecio
@@ -367,6 +447,41 @@ public class AppDbContext : DbContext
             b.Property(e => e.Activa).HasColumnName("activa").HasDefaultValue(true);
             b.Property(e => e.CreadoEn).HasColumnName("creado_en").HasDefaultValueSql("now()");
             b.HasIndex(e => e.Activa);
+        });
+
+        modelBuilder.Entity<Venta>(b =>
+        {
+            b.ToTable("ventas");
+            b.HasKey(e => e.Id);
+            b.Property(e => e.Id).HasColumnName("id");
+            b.Property(e => e.Fecha).HasColumnName("fecha");
+            b.Property(e => e.Total).HasColumnName("total").HasColumnType("numeric(18,2)");
+            b.Property(e => e.Notas).HasColumnName("notas");
+            b.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            b.HasIndex(e => e.Fecha);
+        });
+
+        modelBuilder.Entity<VentaLinea>(b =>
+        {
+            b.ToTable("venta_lineas");
+            b.HasKey(e => e.Id);
+            b.Property(e => e.Id).HasColumnName("id");
+            b.Property(e => e.VentaId).HasColumnName("venta_id");
+            b.Property(e => e.ProductoId).HasColumnName("producto_id");
+            b.Property(e => e.ProductoNombre).HasColumnName("producto_nombre").HasMaxLength(500).IsRequired();
+            b.Property(e => e.Cantidad).HasColumnName("cantidad").HasColumnType("numeric(18,4)");
+            b.Property(e => e.PrecioUnitarioVenta).HasColumnName("precio_unitario_venta").HasColumnType("numeric(18,2)");
+            b.Property(e => e.ModoOrigenEconomico).HasColumnName("modo_origen_economico").HasConversion<string>();
+            b.Property(e => e.CostoCompraSnapshot).HasColumnName("costo_compra_snapshot").HasColumnType("numeric(18,2)");
+            b.Property(e => e.CostoMaterialesSnapshot).HasColumnName("costo_materiales_snapshot").HasColumnType("numeric(18,2)");
+            b.Property(e => e.ManoObraSnapshot).HasColumnName("mano_obra_snapshot").HasColumnType("numeric(18,2)");
+            b.Property(e => e.ComisionTiendaPorcentajeSnapshot).HasColumnName("comision_tienda_porcentaje_snapshot").HasColumnType("numeric(5,2)");
+            b.Property(e => e.GananciaNetaEstimada).HasColumnName("ganancia_neta_estimada").HasColumnType("numeric(18,2)");
+            b.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            b.HasIndex(e => e.VentaId);
+            b.HasIndex(e => e.ProductoId);
+            b.HasOne(e => e.Venta).WithMany(v => v.Lineas).HasForeignKey(e => e.VentaId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(e => e.Producto).WithMany().HasForeignKey(e => e.ProductoId).OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

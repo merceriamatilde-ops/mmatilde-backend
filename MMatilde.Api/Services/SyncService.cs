@@ -90,8 +90,11 @@ public class SyncService
                             }
                         }
 
-                        var prod = await _db.Productos.FirstOrDefaultAsync(p => p.CodigoMakor == scraped.CodigoMakor);
-                        if (prod == null)
+                        var prod = await _db.Productos
+                            .Include(p => p.Presentaciones)
+                            .FirstOrDefaultAsync(p => p.CodigoMakor == scraped.CodigoMakor);
+                        var isNew = prod == null;
+                        if (isNew)
                         {
                             prod = new Producto
                             {
@@ -102,7 +105,7 @@ public class SyncService
                                 SubcategoriaId = subcat?.Id,
                                 ProveedorId = provider.Id,
                                 PrecioMayorista = scraped.Precio,
-                                PrecioMinorista = scraped.Precio, // Por ahora el mismo
+                                PrecioMinorista = scraped.Precio,
                                 UltimaSync = DateTime.UtcNow
                             };
                             _db.Productos.Add(prod);
@@ -110,16 +113,20 @@ public class SyncService
                         }
                         else
                         {
-                            prod.Nombre = scraped.Nombre;
-                            if (scraped.Precio.HasValue)
+                            prod!.Nombre = scraped.Nombre;
+                            if (scraped.Precio.HasValue && prod.ModoPrecio != ModoPrecio.PRECIO_FIJO)
                             {
                                 prod.PrecioMayorista = scraped.Precio;
-                                prod.PrecioMinorista = scraped.Precio;
+                                if (!prod.Presentaciones.Any(p => p.Activo))
+                                    prod.PrecioMinorista = scraped.Precio;
                             }
                             prod.UltimaSync = DateTime.UtcNow;
                             prod.UpdatedAt = DateTime.UtcNow;
                             log.ProductosActualizados++;
                         }
+
+                        if (prod.UnidadBase == null)
+                            AplicarUnidadDetectada(prod, scraped.Nombre);
                         await _db.SaveChangesAsync();
                         totalUpserted++;
 
@@ -173,6 +180,17 @@ public class SyncService
             await _db.SaveChangesAsync();
             return new SyncResponse(false, 0);
         }
+    }
+
+    private static void AplicarUnidadDetectada(Producto prod, string nombre)
+    {
+        var detected = UnidadParser.TryParse(nombre);
+        if (detected == null) return;
+
+        prod.UnidadBase = detected.UnidadBase;
+        prod.CantidadUnidadCompra = detected.CantidadUnidadCompra;
+        prod.EtiquetaUnidadCompra = detected.Etiqueta;
+        prod.UnidadCompraAutoDetectada = true;
     }
 
     private string NormalizeName(string text)

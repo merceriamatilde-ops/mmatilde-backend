@@ -14,6 +14,31 @@ public class Producto
     public decimal? PrecioMayorista { get; set; }
     public decimal? PrecioMinorista { get; set; }
     public decimal DescuentoPorcentaje { get; set; } = 0;
+
+    /// <summary>Unidad mínima para cálculos (g, cm, unidad, etc.).</summary>
+    public UnidadMedida? UnidadBase { get; set; }
+    /// <summary>Cuántas unidades base trae un paquete de compra (ej. 1000 g = 1 kg).</summary>
+    public decimal? CantidadUnidadCompra { get; set; }
+    /// <summary>Etiqueta legible de la unidad de compra (ej. "1 kg", "rollo 10 m").</summary>
+    public string? EtiquetaUnidadCompra { get; set; }
+    public bool UnidadCompraAutoDetectada { get; set; } = false;
+
+    public ModoPrecio ModoPrecio { get; set; } = ModoPrecio.AUTOMATICO;
+    /// <summary>Origen económico: reventa, consignación, elaboración propia o sin costo.</summary>
+    public ModoOrigenEconomico ModoOrigenEconomico { get; set; } = ModoOrigenEconomico.REVENTA;
+    /// <summary>IVA % propio cuando ModoPrecio es EXCEPCION o PRECIO_FIJO.</summary>
+    public decimal? IvaPorcentajeProducto { get; set; }
+    /// <summary>Margen % propio cuando ModoPrecio es EXCEPCION.</summary>
+    public decimal? MargenPorcentajeProducto { get; set; }
+    /// <summary>Consignación: % que retiene la mercería sobre el precio de venta.</summary>
+    public decimal? ComisionTiendaPorcentaje { get; set; }
+    /// <summary>Consignación: nombre del titular del producto (ej. tía, artesana).</summary>
+    public string? TitularConsignacion { get; set; }
+    /// <summary>Elaboración propia: costo de materiales/insumos.</summary>
+    public decimal? CostoMateriales { get; set; }
+    /// <summary>Elaboración propia: valor de la mano de obra (ganancia por confección).</summary>
+    public decimal? ManoObra { get; set; }
+
     public bool Destacado { get; set; } = false;
     public bool Activo { get; set; } = false;
     public int CategoriaId { get; set; }
@@ -31,4 +56,6 @@ public class Producto
     public ICollection<ProductoVariante> Variantes { get; set; } = new List<ProductoVariante>();
     public ICollection<ProductoImagen> Imagenes { get; set; } = new List<ProductoImagen>();
     public ICollection<ProductoRelacionado> Relacionados { get; set; } = new List<ProductoRelacionado>();
+    public ICollection<ProductoPresentacion> Presentaciones { get; set; } = new List<ProductoPresentacion>();
+    public ICollection<ProductoTag> Tags { get; set; } = new List<ProductoTag>();
 }

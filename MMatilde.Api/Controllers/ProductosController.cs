@@ -94,6 +94,7 @@ public class ProductosController : ControllerBase
             .Include(p => p.Imagenes)
             .Include(p => p.Variantes).ThenInclude(v => v.Color)
             .Include(p => p.Relacionados).ThenInclude(r => r.ProductoVinculado).ThenInclude(pv => pv.Imagenes)
+            .Include(p => p.Tags).ThenInclude(t => t.Tag)
             .FirstOrDefaultAsync(p => p.Slug == slug && p.Activo);
 
         if (prod == null) return NotFound();
@@ -120,6 +121,12 @@ public class ProductosController : ControllerBase
             ProductoDisplay.ImagenPublica(r.ProductoVinculado)
         )).ToList();
 
+        var tagsDto = prod.Tags?
+            .Where(t => t.Tag.Activo)
+            .OrderBy(t => t.Tag.Orden)
+            .Select(t => new TagResumenDto(t.Tag.Id, t.Tag.Nombre, t.Tag.Slug))
+            .ToList();
+
         return new ProductoDetalleDto(
             prod.Id,
             prod.Slug,
@@ -131,7 +138,8 @@ public class ProductosController : ControllerBase
             prod.Subcategoria?.Slug,
             imgUrls,
             variantesDto,
-            relacionadosDto
+            relacionadosDto,
+            tagsDto
         );
     }
 
@@ -178,6 +186,16 @@ public class ProductosController : ControllerBase
         return Ok(new { success = true, count = prod.Count });
     }
 
+    /// <summary>Solo desarrollo: activa todo el catálogo para pruebas de IA / catálogo.</summary>
+    [HttpPut("dev/activate-all")]
+    public async Task<IActionResult> ActivateAllDev([FromServices] IWebHostEnvironment env)
+    {
+        if (!env.IsDevelopment()) return NotFound();
+
+        var count = await _db.Productos.ExecuteUpdateAsync(p => p.SetProperty(x => x.Activo, true));
+        return Ok(new { success = true, count });
+    }
+
     [HttpGet("admin/{id}")]
     [Authorize]
     public async Task<ActionResult<object>> GetById(int id)
@@ -186,6 +204,7 @@ public class ProductosController : ControllerBase
             .Include(p => p.Imagenes)
             .Include(p => p.Variantes)
             .Include(p => p.Relacionados).ThenInclude(r => r.ProductoVinculado)
+            .Include(p => p.Tags).ThenInclude(t => t.Tag)
             .Include(p => p.Proveedor)
             .FirstOrDefaultAsync(p => p.Id == id);
         
@@ -218,6 +237,11 @@ public class ProductosController : ControllerBase
                 id = r.ProductoVinculadoId,
                 nombre = r.ProductoVinculado.Nombre,
                 codigo = r.ProductoVinculado.CodigoMakor
+            }),
+            Tags = prod.Tags.OrderBy(t => t.Tag.Orden).Select(t => new {
+                id = t.TagId,
+                nombre = t.Tag.Nombre,
+                slug = t.Tag.Slug
             })
         };
     }
@@ -286,6 +310,14 @@ public class ProductosController : ControllerBase
             }
         }
 
+        if (dto.TagIds != null)
+        {
+            foreach (var tagId in dto.TagIds.Distinct())
+            {
+                p.Tags.Add(new ProductoTag { TagId = tagId });
+            }
+        }
+
         _db.Productos.Add(p);
         await _db.SaveChangesAsync();
         return Ok();
@@ -299,6 +331,7 @@ public class ProductosController : ControllerBase
             .Include(pr => pr.Imagenes)
             .Include(pr => pr.Variantes)
             .Include(pr => pr.Relacionados)
+            .Include(pr => pr.Tags)
             .Include(pr => pr.Proveedor)
             .FirstOrDefaultAsync(pr => pr.Id == id);
 
@@ -387,6 +420,15 @@ public class ProductosController : ControllerBase
             foreach(var relId in dto.RelacionadosIds)
             {
                 p.Relacionados.Add(new ProductoRelacionado { ProductoVinculadoId = relId });
+            }
+        }
+
+        if (dto.TagIds != null)
+        {
+            _db.Set<ProductoTag>().RemoveRange(p.Tags);
+            foreach (var tagId in dto.TagIds.Distinct())
+            {
+                p.Tags.Add(new ProductoTag { TagId = tagId });
             }
         }
 
