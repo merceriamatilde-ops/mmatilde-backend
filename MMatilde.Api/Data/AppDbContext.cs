@@ -478,6 +478,8 @@ public class AppDbContext : DbContext
             b.Property(e => e.ProductoId).HasColumnName("producto_id");
             b.Property(e => e.VarianteId).HasColumnName("variante_id");
             b.Property(e => e.VarianteLabel).HasColumnName("variante_label").HasMaxLength(200);
+            b.Property(e => e.PresentacionId).HasColumnName("presentacion_id");
+            b.Property(e => e.PresentacionNombre).HasColumnName("presentacion_nombre").HasMaxLength(120);
             b.Property(e => e.ProductoNombre).HasColumnName("producto_nombre").HasMaxLength(500).IsRequired();
             b.Property(e => e.Cantidad).HasColumnName("cantidad").HasColumnType("numeric(18,4)");
             b.Property(e => e.PrecioUnitarioVenta).HasColumnName("precio_unitario_venta").HasColumnType("numeric(18,2)");

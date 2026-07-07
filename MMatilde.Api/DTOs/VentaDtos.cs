@@ -5,6 +5,7 @@ namespace MMatilde.Api.DTOs;
 public record VentaLineaCreateDto(
     int ProductoId,
     int? VarianteId,
+    int? PresentacionId,
     decimal Cantidad,
     decimal? PrecioUnitario
 );
@@ -30,6 +31,7 @@ public record VentaLineaDto(
     int ProductoId,
     int? VarianteId,
     string? VarianteLabel,
+    string? PresentacionNombre,
     string ProductoNombre,
     decimal Cantidad,
     decimal PrecioUnitarioVenta,
@@ -76,6 +78,15 @@ public record ProductoVentaVarianteDto(
     string Label
 );
 
+public record ProductoVentaPresentacionDto(
+    int Id,
+    string Nombre,
+    decimal? PrecioVenta,
+    decimal? GananciaNetaEstimada,
+    decimal? CostoReferencia,
+    bool EsDefault
+);
+
 public record ProductoVentaBusquedaDto(
     int Id,
     string Nombre,
@@ -88,7 +99,8 @@ public record ProductoVentaBusquedaDto(
     decimal? IvaPorcentaje,
     decimal? CostoMateriales,
     decimal? ManoObra,
-    List<ProductoVentaVarianteDto> Variantes
+    List<ProductoVentaVarianteDto> Variantes,
+    List<ProductoVentaPresentacionDto> Presentaciones
 );
 
 public record ProductoVentaPrecioDto(
@@ -102,5 +114,6 @@ public record ProductoVentaPrecioDto(
     decimal? CostoReferencia,
     decimal? IvaPorcentaje,
     decimal? CostoMateriales,
-    decimal? ManoObra
+    decimal? ManoObra,
+    List<ProductoVentaPresentacionDto> Presentaciones
 );

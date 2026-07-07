@@ -24,6 +24,8 @@ public class VentaLinea
     public int ProductoId { get; set; }
     public int? VarianteId { get; set; }
     public string? VarianteLabel { get; set; }
+    public int? PresentacionId { get; set; }
+    public string? PresentacionNombre { get; set; }
     public string ProductoNombre { get; set; } = string.Empty;
     public decimal Cantidad { get; set; } = 1;
     public decimal PrecioUnitarioVenta { get; set; }

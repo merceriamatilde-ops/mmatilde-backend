@@ -70,12 +70,14 @@ public class VentasService
         var result = new List<ProductoVentaBusquedaDto>();
         foreach (var p in productos)
         {
-            var mapped = await MapProductoPrecio(p);
+            var presentaciones = await MapPresentacionesVenta(p);
+            var defaultPres = ResolvePresentacion(p, null);
+            var mapped = await MapPresentacionPrecio(p, defaultPres);
             result.Add(new ProductoVentaBusquedaDto(
                 p.Id,
                 p.NombrePublico ?? p.Nombre,
                 p.CodigoMakor,
-                mapped.PrecioVenta,
+                mapped.Precio,
                 mapped.UnidadVenta,
                 mapped.GananciaNetaEstimada,
                 p.ModoOrigenEconomico.ToString(),
@@ -83,7 +85,8 @@ public class VentasService
                 mapped.IvaPorcentaje,
                 mapped.CostoMateriales,
                 mapped.ManoObra,
-                MapVariantesVenta(p)
+                MapVariantesVenta(p),
+                presentaciones
             ));
         }
 
@@ -176,6 +179,7 @@ public class VentasService
                 l.ProductoId,
                 l.VarianteId,
                 l.VarianteLabel,
+                l.PresentacionNombre,
                 l.ProductoNombre,
                 l.Cantidad,
                 l.PrecioUnitarioVenta,
@@ -232,24 +236,13 @@ public class VentasService
                 ?? throw new InvalidOperationException("La variante seleccionada no es válida.");
         }
 
-        var pres = producto.Presentaciones.FirstOrDefault(p => p.EsDefault && p.Activo)
-            ?? producto.Presentaciones.FirstOrDefault(p => p.Activo);
+        var pres = ResolvePresentacion(producto, input.PresentacionId);
+        var mapped = await MapPresentacionPrecio(producto, pres);
 
-        decimal? precioDefault = pres?.PrecioVenta;
-        if (pres != null && !precioDefault.HasValue)
-            precioDefault = await _pricing.CalcularPrecioVentaAsync(producto, pres);
-        precioDefault ??= producto.PrecioMinorista;
-
-        var precioUnitario = input.PrecioUnitario ?? precioDefault
+        var precioUnitario = input.PrecioUnitario ?? mapped.Precio
             ?? throw new InvalidOperationException($"El producto \"{producto.Nombre}\" no tiene precio de venta.");
 
-        var costoBase = _pricing.CostoPorUnidadBase(producto);
-        decimal? costoCompra = null;
-        if (costoBase.HasValue && pres != null)
-            costoCompra = costoBase.Value * pres.CantidadUnidadBase;
-
-        var iva = await _pricing.ResolveIvaAsync(producto);
-        var est = GananciaService.Estimar(producto, precioUnitario, costoCompra, iva);
+        var est = GananciaService.Estimar(producto, precioUnitario, mapped.CostoCompra, mapped.IvaPorcentaje);
         var gananciaUnit = est.GananciaNetaEstimada ?? 0m;
 
         return new VentaLinea
@@ -257,11 +250,13 @@ public class VentasService
             ProductoId = producto.Id,
             VarianteId = variante?.Id,
             VarianteLabel = variante != null ? BuildVarianteLabel(variante) : null,
+            PresentacionId = pres?.Id,
+            PresentacionNombre = pres?.Nombre,
             ProductoNombre = producto.NombrePublico ?? producto.Nombre,
             Cantidad = input.Cantidad,
             PrecioUnitarioVenta = precioUnitario,
             ModoOrigenEconomico = producto.ModoOrigenEconomico,
-            CostoCompraSnapshot = costoCompra,
+            CostoCompraSnapshot = mapped.CostoCompra,
             CostoMaterialesSnapshot = producto.CostoMateriales,
             ManoObraSnapshot = producto.ManoObra,
             ComisionTiendaPorcentajeSnapshot = producto.ComisionTiendaPorcentaje,
@@ -269,11 +264,50 @@ public class VentasService
         };
     }
 
-    private async Task<ProductoVentaPrecioDto> MapProductoPrecio(Producto producto)
-    {
-        var pres = producto.Presentaciones.FirstOrDefault(p => p.EsDefault && p.Activo)
-            ?? producto.Presentaciones.FirstOrDefault(p => p.Activo);
+    private sealed record PresentacionPrecioMapped(
+        decimal? Precio,
+        string? UnidadVenta,
+        decimal? GananciaNetaEstimada,
+        decimal? CostoReferencia,
+        decimal? CostoCompra,
+        decimal? IvaPorcentaje,
+        decimal? CostoMateriales,
+        decimal? ManoObra
+    );
 
+    private static ProductoPresentacion? ResolvePresentacion(Producto producto, int? presentacionId)
+    {
+        if (presentacionId.HasValue)
+        {
+            var selected = producto.Presentaciones.FirstOrDefault(p => p.Id == presentacionId.Value && p.Activo);
+            if (selected != null) return selected;
+        }
+
+        return producto.Presentaciones.FirstOrDefault(p => p.EsDefault && p.Activo)
+            ?? producto.Presentaciones.FirstOrDefault(p => p.Activo);
+    }
+
+    private async Task<List<ProductoVentaPresentacionDto>> MapPresentacionesVenta(Producto producto)
+    {
+        var list = new List<ProductoVentaPresentacionDto>();
+        foreach (var pres in producto.Presentaciones.Where(p => p.Activo).OrderBy(p => p.Orden).ThenBy(p => p.Id))
+        {
+            var mapped = await MapPresentacionPrecio(producto, pres);
+            list.Add(new ProductoVentaPresentacionDto(
+                pres.Id,
+                pres.Nombre,
+                mapped.Precio,
+                mapped.GananciaNetaEstimada,
+                mapped.CostoReferencia,
+                pres.EsDefault
+            ));
+        }
+
+        return list;
+    }
+
+    private async Task<PresentacionPrecioMapped> MapPresentacionPrecio(Producto producto, ProductoPresentacion? pres)
+    {
         decimal? precio = pres?.PrecioVenta;
         if (pres != null && !precio.HasValue)
             precio = await _pricing.CalcularPrecioVentaAsync(producto, pres);
@@ -284,23 +318,46 @@ public class VentasService
         if (costoBase.HasValue && pres != null)
             costoCompra = costoBase.Value * pres.CantidadUnidadBase;
 
-        GananciaEstimadaDto? ganancia = null;
         var iva = await _pricing.ResolveIvaAsync(producto);
+        GananciaEstimadaDto? ganancia = null;
         if (precio.HasValue)
             ganancia = GananciaService.Estimar(producto, precio.Value, costoCompra, iva);
+
+        return new PresentacionPrecioMapped(
+            precio,
+            pres?.Nombre ?? producto.EtiquetaUnidadCompra,
+            ganancia?.GananciaNetaEstimada,
+            ganancia?.CostoReferencia,
+            costoCompra,
+            iva,
+            producto.CostoMateriales,
+            producto.ManoObra
+        );
+    }
+
+    private async Task<ProductoVentaPrecioDto> MapProductoPrecio(Producto producto)
+    {
+        var pres = ResolvePresentacion(producto, null);
+        var mapped = await MapPresentacionPrecio(producto, pres);
+        var presentaciones = await MapPresentacionesVenta(producto);
+
+        GananciaEstimadaDto? ganancia = null;
+        if (mapped.Precio.HasValue)
+            ganancia = GananciaService.Estimar(producto, mapped.Precio.Value, mapped.CostoCompra, mapped.IvaPorcentaje);
 
         return new ProductoVentaPrecioDto(
             producto.Id,
             producto.NombrePublico ?? producto.Nombre,
-            precio,
-            pres?.Nombre ?? producto.EtiquetaUnidadCompra,
+            mapped.Precio,
+            mapped.UnidadVenta,
             ganancia?.GananciaNetaEstimada,
             producto.ModoOrigenEconomico.ToString(),
             ganancia?.Nota,
             ganancia?.CostoReferencia,
-            iva,
-            producto.CostoMateriales,
-            producto.ManoObra
+            mapped.IvaPorcentaje,
+            mapped.CostoMateriales,
+            mapped.ManoObra,
+            presentaciones
         );
     }
 
