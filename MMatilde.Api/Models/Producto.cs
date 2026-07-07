@@ -36,8 +36,12 @@ public class Producto
     public string? TitularConsignacion { get; set; }
     /// <summary>Elaboración propia: costo de materiales/insumos.</summary>
     public decimal? CostoMateriales { get; set; }
-    /// <summary>Elaboración propia: valor de la mano de obra (ganancia por confección).</summary>
+    /// <summary>Elaboración propia: costo de mano de obra (no es ganancia).</summary>
     public decimal? ManoObra { get; set; }
+    /// <summary>Elaboración propia: margen % sobre materiales + mano de obra.</summary>
+    public decimal? MargenElaboracionPorcentaje { get; set; }
+    /// <summary>Elaboración propia: margen fijo en $ (ganancia de la mercería).</summary>
+    public decimal? MargenElaboracionMonto { get; set; }
 
     public bool Destacado { get; set; } = false;
     public bool Activo { get; set; } = false;

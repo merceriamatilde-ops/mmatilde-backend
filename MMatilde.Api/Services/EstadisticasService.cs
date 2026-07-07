@@ -14,7 +14,7 @@ public class EstadisticasService
     public async Task<EstadisticasResumenDto> GetResumenAsync(
         DateOnly desde,
         DateOnly hasta,
-        TurnoVenta? turno,
+        string? turno,
         string? medioPagoSlug,
         bool comparar)
     {
@@ -60,22 +60,24 @@ public class EstadisticasService
         );
     }
 
-    private IQueryable<Venta> QueryVentas(DateTime desdeUtc, DateTime hastaUtc, TurnoVenta? turno, string? medioPagoSlug)
+    private IQueryable<Venta> QueryVentas(DateTime desdeUtc, DateTime hastaUtc, string? turno, string? medioPagoSlug)
     {
         var q = _db.Ventas.Where(v => v.Fecha >= desdeUtc && v.Fecha <= hastaUtc);
-        if (turno.HasValue) q = q.Where(v => v.Turno == turno.Value);
+        if (!string.IsNullOrWhiteSpace(turno))
+            q = q.Where(v => v.Turno == turno.Trim().ToUpperInvariant());
         if (!string.IsNullOrWhiteSpace(medioPagoSlug))
             q = q.Where(v => v.MedioPagoSlug == medioPagoSlug.Trim().ToLowerInvariant());
         return q;
     }
 
-    private IQueryable<VentaLinea> QueryLineas(DateTime desdeUtc, DateTime hastaUtc, TurnoVenta? turno, string? medioPagoSlug)
+    private IQueryable<VentaLinea> QueryLineas(DateTime desdeUtc, DateTime hastaUtc, string? turno, string? medioPagoSlug)
     {
         var q = _db.VentaLineas
             .Include(l => l.Venta)
             .Where(l => l.Venta != null && l.Venta.Fecha >= desdeUtc && l.Venta.Fecha <= hastaUtc);
 
-        if (turno.HasValue) q = q.Where(l => l.Venta!.Turno == turno.Value);
+        if (!string.IsNullOrWhiteSpace(turno))
+            q = q.Where(l => l.Venta!.Turno == turno.Trim().ToUpperInvariant());
         if (!string.IsNullOrWhiteSpace(medioPagoSlug))
             q = q.Where(l => l.Venta!.MedioPagoSlug == medioPagoSlug.Trim().ToLowerInvariant());
 

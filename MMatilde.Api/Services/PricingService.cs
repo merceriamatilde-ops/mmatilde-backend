@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 
 using MMatilde.Api.Data;
 
+using MMatilde.Api.DTOs;
+
 using MMatilde.Api.Models;
 
 
@@ -236,6 +238,48 @@ public class PricingService
 
             producto.PrecioMinorista = defaultPres.PrecioVenta;
 
+    }
+
+    public async Task<PrecioVentaResumenDto> ResolverPrecioVentaDefaultAsync(Producto producto)
+    {
+        var activas = producto.Presentaciones
+            .Where(x => x.Activo)
+            .OrderByDescending(x => x.EsDefault)
+            .ThenBy(x => x.Orden)
+            .ToList();
+
+        ProductoPresentacion presRef;
+        string? nombre;
+
+        if (activas.Count > 0)
+        {
+            presRef = activas[0];
+            nombre = string.IsNullOrWhiteSpace(presRef.Nombre) ? null : presRef.Nombre;
+        }
+        else if (producto.ModoPrecio == ModoPrecio.PRECIO_FIJO)
+        {
+            var precioFijo = producto.PrecioMinorista;
+            return new PrecioVentaResumenDto(precioFijo, precioFijo, 1m, null);
+        }
+        else
+        {
+            var cantidad = producto.CantidadUnidadCompra is > 0 ? producto.CantidadUnidadCompra.Value : 1m;
+            nombre = !string.IsNullOrWhiteSpace(producto.EtiquetaUnidadCompra)
+                ? producto.EtiquetaUnidadCompra
+                : $"Paquete x{cantidad:G0}";
+            presRef = new ProductoPresentacion { CantidadUnidadBase = cantidad, Nombre = nombre };
+        }
+
+        var calculado = await CalcularPrecioVentaAsync(producto, presRef);
+        var precioTotal = presRef.PrecioVenta ?? calculado ?? producto.PrecioMinorista;
+        var cantidadRef = presRef.CantidadUnidadBase > 0 ? presRef.CantidadUnidadBase : 1m;
+        decimal? precioPorUnidad = null;
+        if (precioTotal.HasValue && cantidadRef > 0)
+        {
+            precioPorUnidad = Math.Round(precioTotal.Value / cantidadRef, 2, MidpointRounding.AwayFromZero);
+        }
+
+        return new PrecioVentaResumenDto(precioTotal, precioPorUnidad, cantidadRef, nombre);
     }
 
 }

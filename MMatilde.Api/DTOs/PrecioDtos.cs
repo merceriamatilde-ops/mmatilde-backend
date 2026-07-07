@@ -43,6 +43,13 @@ public record GananciaEstimadaDto(
     string Nota
 );
 
+public record PrecioVentaResumenDto(
+    decimal? PrecioVentaFinal,
+    decimal? PrecioVentaPorUnidad,
+    decimal CantidadReferencia,
+    string? PresentacionNombre
+);
+
 public record ProductoUnidadesDto(
     string? UnidadBase,
     decimal? CantidadUnidadCompra,
@@ -62,7 +69,13 @@ public record ProductoUnidadesDto(
     string? TitularConsignacion,
     decimal? CostoMateriales,
     decimal? ManoObra,
+    decimal? MargenElaboracionPorcentaje,
+    decimal? MargenElaboracionMonto,
     GananciaEstimadaDto? GananciaEstimada,
+    decimal? PrecioVentaFinal,
+    decimal? PrecioVentaPorUnidad,
+    decimal CantidadReferenciaVenta,
+    string? PrecioVentaPresentacion,
     List<PresentacionDto> Presentaciones
 );
 
@@ -79,6 +92,8 @@ public record ProductoUnidadesUpdateDto(
     string? TitularConsignacion,
     decimal? CostoMateriales,
     decimal? ManoObra,
+    decimal? MargenElaboracionPorcentaje,
+    decimal? MargenElaboracionMonto,
     List<PresentacionInputDto>? Presentaciones,
     bool RecalcularPrecios = true
 );

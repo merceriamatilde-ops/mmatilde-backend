@@ -5,7 +5,7 @@ public class Venta
 {
     public int Id { get; set; }
     public DateTime Fecha { get; set; } = DateTime.UtcNow;
-    public TurnoVenta Turno { get; set; } = TurnoVenta.MANANA;
+    public string Turno { get; set; } = "MANANA";
     /// <summary>Slug del medio de pago (tabla medios_pago).</summary>
     public string MedioPagoSlug { get; set; } = string.Empty;
     public decimal Total { get; set; }
@@ -22,6 +22,8 @@ public class VentaLinea
     public int Id { get; set; }
     public int VentaId { get; set; }
     public int ProductoId { get; set; }
+    public int? VarianteId { get; set; }
+    public string? VarianteLabel { get; set; }
     public string ProductoNombre { get; set; } = string.Empty;
     public decimal Cantidad { get; set; } = 1;
     public decimal PrecioUnitarioVenta { get; set; }

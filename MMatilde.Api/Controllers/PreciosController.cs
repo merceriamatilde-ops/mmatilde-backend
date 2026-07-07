@@ -165,6 +165,8 @@ public class PreciosController : ControllerBase
             : dto.TitularConsignacion.Trim();
         prod.CostoMateriales = dto.CostoMateriales;
         prod.ManoObra = dto.ManoObra;
+        prod.MargenElaboracionPorcentaje = dto.MargenElaboracionPorcentaje;
+        prod.MargenElaboracionMonto = dto.MargenElaboracionMonto;
 
         if (dto.Presentaciones != null)
         {
@@ -207,6 +209,35 @@ public class PreciosController : ControllerBase
                 var defaultId = prod.Presentaciones.First(p => p.EsDefault).Id;
                 foreach (var p in prod.Presentaciones.Where(p => p.Id != defaultId && p.Id != 0))
                     p.EsDefault = false;
+            }
+        }
+
+        if (prod.ModoOrigenEconomico == ModoOrigenEconomico.ELABORACION_PROPIA)
+        {
+            var precioCalc = GananciaService.CalcularPrecioElaboracion(prod);
+            if (precioCalc.HasValue)
+            {
+                var activas = prod.Presentaciones.Where(p => p.Activo).ToList();
+                if (activas.Count == 0)
+                {
+                    prod.Presentaciones.Add(new ProductoPresentacion
+                    {
+                        Nombre = "Unidad",
+                        CantidadUnidadBase = 1,
+                        PrecioVenta = precioCalc,
+                        EsDefault = true,
+                        Activo = true,
+                        Orden = 0,
+                    });
+                }
+                else
+                {
+                    foreach (var p in activas)
+                    {
+                        p.PrecioVenta = precioCalc;
+                        p.UpdatedAt = DateTime.UtcNow;
+                    }
+                }
             }
         }
 
@@ -284,9 +315,21 @@ public class PreciosController : ControllerBase
                     decimal? costoCompra = null;
                     if (costoBase.HasValue)
                         costoCompra = costoBase.Value * p.CantidadUnidadBase;
-                    ganancia = GananciaService.Estimar(prod, precioRef.Value, costoCompra);
+                    ganancia = GananciaService.Estimar(prod, precioRef.Value, costoCompra, iva);
                 }
             }
+        }
+
+        var venta = await _pricing.ResolverPrecioVentaDefaultAsync(prod);
+
+        if (ganancia == null && venta.PrecioVentaFinal.HasValue)
+        {
+            decimal? costoCompra = null;
+            if (costoBase.HasValue)
+            {
+                costoCompra = costoBase.Value * venta.CantidadReferencia;
+            }
+            ganancia = GananciaService.Estimar(prod, venta.PrecioVentaFinal.Value, costoCompra, iva);
         }
 
         return new ProductoUnidadesDto(
@@ -308,7 +351,13 @@ public class PreciosController : ControllerBase
             prod.TitularConsignacion,
             prod.CostoMateriales,
             prod.ManoObra,
+            prod.MargenElaboracionPorcentaje,
+            prod.MargenElaboracionMonto,
             ganancia,
+            venta.PrecioVentaFinal,
+            venta.PrecioVentaPorUnidad,
+            venta.CantidadReferencia,
+            venta.PresentacionNombre,
             presentaciones
         );
     }

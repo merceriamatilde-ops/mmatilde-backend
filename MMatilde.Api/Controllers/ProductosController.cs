@@ -5,6 +5,7 @@ using MMatilde.Api.Data;
 using MMatilde.Api.DTOs;
 using MMatilde.Api.Models;
 using MMatilde.Api.Helpers;
+using MMatilde.Api.Services;
 
 namespace MMatilde.Api.Controllers;
 
@@ -13,10 +14,12 @@ namespace MMatilde.Api.Controllers;
 public class ProductosController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly PricingService _pricing;
 
-    public ProductosController(AppDbContext db)
+    public ProductosController(AppDbContext db, PricingService pricing)
     {
         _db = db;
+        _pricing = pricing;
     }
 
     [HttpGet]
@@ -65,22 +68,33 @@ public class ProductosController : ControllerBase
         var total = await query.CountAsync();
         var totalPages = (int)Math.Ceiling(total / (double)pageSize);
 
-        var items = await query
+        var products = await query
+            .Include(p => p.Presentaciones)
             .OrderByDescending(p => p.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(p => new ProductoAdminDto(
+            .ToListAsync();
+
+        var items = new List<ProductoAdminDto>(products.Count);
+        foreach (var p in products)
+        {
+            var venta = await _pricing.ResolverPrecioVentaDefaultAsync(p);
+            items.Add(new ProductoAdminDto(
                 p.Id,
                 p.CodigoMakor,
                 p.NombrePublico != null && p.NombrePublico != "" ? p.NombrePublico : p.Nombre,
                 p.Categoria != null ? (p.Subcategoria != null ? p.Categoria.Nombre + " > " + p.Subcategoria.Nombre : p.Categoria.Nombre) : "",
                 p.PrecioMayorista,
                 p.PrecioMinorista,
+                venta.PrecioVentaFinal,
                 p.Activo,
                 p.Destacado,
-                p.UltimaSync
-            ))
-            .ToListAsync();
+                p.UltimaSync,
+                p.ModoOrigenEconomico.ToString(),
+                p.ModoPrecio.ToString(),
+                p.ProveedorId
+            ));
+        }
 
         return new ProductoAdminListResponse(items, total, page, pageSize, totalPages);
     }

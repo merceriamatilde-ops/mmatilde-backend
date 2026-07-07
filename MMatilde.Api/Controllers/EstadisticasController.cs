@@ -19,7 +19,7 @@ public class EstadisticasController : ControllerBase
     public async Task<ActionResult<EstadisticasResumenDto>> Resumen(
         [FromQuery] DateOnly desde,
         [FromQuery] DateOnly hasta,
-        [FromQuery] TurnoVenta? turno,
+        [FromQuery] string? turno,
         [FromQuery] string? medioPago,
         [FromQuery] bool comparar = true)
     {

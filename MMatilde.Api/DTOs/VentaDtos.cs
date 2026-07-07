@@ -4,13 +4,14 @@ namespace MMatilde.Api.DTOs;
 
 public record VentaLineaCreateDto(
     int ProductoId,
+    int? VarianteId,
     decimal Cantidad,
     decimal? PrecioUnitario
 );
 
 public record VentaCreateDto(
     DateTimeOffset FechaHora,
-    TurnoVenta Turno,
+    string Turno,
     string MedioPagoSlug,
     string? Notas,
     List<VentaLineaCreateDto> Lineas
@@ -18,7 +19,7 @@ public record VentaCreateDto(
 
 public record VentaUpdateDto(
     DateTimeOffset FechaHora,
-    TurnoVenta Turno,
+    string Turno,
     string MedioPagoSlug,
     string? Notas,
     List<VentaLineaCreateDto> Lineas
@@ -27,6 +28,8 @@ public record VentaUpdateDto(
 public record VentaLineaDto(
     int Id,
     int ProductoId,
+    int? VarianteId,
+    string? VarianteLabel,
     string ProductoNombre,
     decimal Cantidad,
     decimal PrecioUnitarioVenta,
@@ -68,6 +71,11 @@ public record VentaResumenDto(
     decimal TicketPromedio
 );
 
+public record ProductoVentaVarianteDto(
+    int Id,
+    string Label
+);
+
 public record ProductoVentaBusquedaDto(
     int Id,
     string Nombre,
@@ -75,7 +83,12 @@ public record ProductoVentaBusquedaDto(
     decimal? PrecioVenta,
     string? UnidadVenta,
     decimal? GananciaNetaEstimada,
-    string ModoOrigenEconomico
+    string ModoOrigenEconomico,
+    decimal? CostoReferencia,
+    decimal? IvaPorcentaje,
+    decimal? CostoMateriales,
+    decimal? ManoObra,
+    List<ProductoVentaVarianteDto> Variantes
 );
 
 public record ProductoVentaPrecioDto(
@@ -85,5 +98,9 @@ public record ProductoVentaPrecioDto(
     string? UnidadVenta,
     decimal? GananciaNetaEstimada,
     string ModoOrigenEconomico,
-    string? NotaGanancia
+    string? NotaGanancia,
+    decimal? CostoReferencia,
+    decimal? IvaPorcentaje,
+    decimal? CostoMateriales,
+    decimal? ManoObra
 );

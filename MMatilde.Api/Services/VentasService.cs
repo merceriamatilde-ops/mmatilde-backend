@@ -9,18 +9,17 @@ public class VentasService
 {
     private readonly AppDbContext _db;
     private readonly PricingService _pricing;
+    private readonly TurnosVentaService _turnos;
 
-    public VentasService(AppDbContext db, PricingService pricing)
+    public VentasService(AppDbContext db, PricingService pricing, TurnosVentaService turnos)
     {
         _db = db;
         _pricing = pricing;
+        _turnos = turnos;
     }
 
-    public static TurnoVenta InferirTurno(DateTimeOffset fechaHora)
-    {
-        var local = ToArgentina(fechaHora);
-        return local.Hour < 14 ? TurnoVenta.MANANA : TurnoVenta.TARDE;
-    }
+    public async Task<string> InferirTurnoAsync(DateTimeOffset fechaHora) =>
+        await _turnos.InferirSlugAsync(fechaHora);
 
     public static DateTimeOffset ToArgentina(DateTimeOffset value)
     {
@@ -58,6 +57,8 @@ public class VentasService
         var patron = $"%{q.Trim()}%";
         var productos = await _db.Productos
             .Include(p => p.Presentaciones)
+            .Include(p => p.Variantes)
+                .ThenInclude(v => v.Color)
             .Where(p => p.Activo && (
                 EF.Functions.ILike(p.Nombre, patron) ||
                 (p.NombrePublico != null && EF.Functions.ILike(p.NombrePublico, patron)) ||
@@ -77,7 +78,12 @@ public class VentasService
                 mapped.PrecioVenta,
                 mapped.UnidadVenta,
                 mapped.GananciaNetaEstimada,
-                p.ModoOrigenEconomico.ToString()
+                p.ModoOrigenEconomico.ToString(),
+                mapped.CostoReferencia,
+                mapped.IvaPorcentaje,
+                mapped.CostoMateriales,
+                mapped.ManoObra,
+                MapVariantesVenta(p)
             ));
         }
 
@@ -93,11 +99,12 @@ public class VentasService
             throw new InvalidOperationException("La venta debe tener al menos una línea.");
 
         var medioSlug = await ValidarMedioPagoAsync(dto.MedioPagoSlug);
+        var turnoSlug = await ValidarTurnoAsync(dto.Turno);
 
         var venta = new Venta
         {
             Fecha = dto.FechaHora.UtcDateTime,
-            Turno = dto.Turno,
+            Turno = turnoSlug,
             MedioPagoSlug = medioSlug,
             Notas = string.IsNullOrWhiteSpace(dto.Notas) ? null : dto.Notas.Trim(),
         };
@@ -124,7 +131,7 @@ public class VentasService
             throw new InvalidOperationException("La venta debe tener al menos una línea.");
 
         venta.Fecha = dto.FechaHora.UtcDateTime;
-        venta.Turno = dto.Turno;
+        venta.Turno = await ValidarTurnoAsync(dto.Turno);
         venta.MedioPagoSlug = await ValidarMedioPagoAsync(dto.MedioPagoSlug);
         venta.Notas = string.IsNullOrWhiteSpace(dto.Notas) ? null : dto.Notas.Trim();
 
@@ -144,7 +151,7 @@ public class VentasService
     public VentaListDto MapList(Venta venta, IReadOnlyDictionary<string, string> mediosMap) => new(
         venta.Id,
         ToArgentina(new DateTimeOffset(venta.Fecha, TimeSpan.Zero)),
-        venta.Turno.ToString(),
+        venta.Turno,
         venta.MedioPagoSlug,
         mediosMap.GetValueOrDefault(venta.MedioPagoSlug, venta.MedioPagoSlug),
         venta.Total,
@@ -156,7 +163,7 @@ public class VentasService
     public VentaDetailDto MapDetail(Venta venta, IReadOnlyDictionary<string, string> mediosMap) => new(
         venta.Id,
         ToArgentina(new DateTimeOffset(venta.Fecha, TimeSpan.Zero)),
-        venta.Turno.ToString(),
+        venta.Turno,
         venta.MedioPagoSlug,
         mediosMap.GetValueOrDefault(venta.MedioPagoSlug, venta.MedioPagoSlug),
         venta.Total,
@@ -167,6 +174,8 @@ public class VentasService
             .Select(l => new VentaLineaDto(
                 l.Id,
                 l.ProductoId,
+                l.VarianteId,
+                l.VarianteLabel,
                 l.ProductoNombre,
                 l.Cantidad,
                 l.PrecioUnitarioVenta,
@@ -180,7 +189,33 @@ public class VentasService
     private async Task<Producto?> LoadProducto(int id) =>
         await _db.Productos
             .Include(p => p.Presentaciones)
+            .Include(p => p.Variantes)
+                .ThenInclude(v => v.Color)
             .FirstOrDefaultAsync(p => p.Id == id);
+
+    private static List<ProductoVentaVarianteDto> MapVariantesVenta(Producto producto) =>
+        producto.Variantes
+            .Where(v => v.Activo)
+            .OrderBy(v => v.Orden)
+            .ThenBy(v => v.Id)
+            .Select(v => new ProductoVentaVarianteDto(v.Id, BuildVarianteLabel(v)))
+            .ToList();
+
+    private static string BuildVarianteLabel(ProductoVariante variante)
+    {
+        var partes = new List<string>();
+        if (!string.IsNullOrWhiteSpace(variante.Color?.Nombre))
+            partes.Add(variante.Color.Nombre.Trim());
+        if (!string.IsNullOrWhiteSpace(variante.Talle))
+            partes.Add(variante.Talle.Trim());
+        if (!string.IsNullOrWhiteSpace(variante.Medida))
+            partes.Add(variante.Medida.Trim());
+        if (partes.Count > 0)
+            return string.Join(" · ", partes);
+        if (!string.IsNullOrWhiteSpace(variante.CodigoArticulo))
+            return variante.CodigoArticulo.Trim();
+        return $"Variante #{variante.Id}";
+    }
 
     private async Task<VentaLinea> BuildLineaAsync(VentaLineaCreateDto input)
     {
@@ -189,6 +224,13 @@ public class VentasService
 
         if (input.Cantidad <= 0)
             throw new InvalidOperationException("La cantidad debe ser mayor a cero.");
+
+        ProductoVariante? variante = null;
+        if (input.VarianteId.HasValue)
+        {
+            variante = producto.Variantes.FirstOrDefault(v => v.Id == input.VarianteId.Value && v.Activo)
+                ?? throw new InvalidOperationException("La variante seleccionada no es válida.");
+        }
 
         var pres = producto.Presentaciones.FirstOrDefault(p => p.EsDefault && p.Activo)
             ?? producto.Presentaciones.FirstOrDefault(p => p.Activo);
@@ -206,12 +248,15 @@ public class VentasService
         if (costoBase.HasValue && pres != null)
             costoCompra = costoBase.Value * pres.CantidadUnidadBase;
 
-        var est = GananciaService.Estimar(producto, precioUnitario, costoCompra);
+        var iva = await _pricing.ResolveIvaAsync(producto);
+        var est = GananciaService.Estimar(producto, precioUnitario, costoCompra, iva);
         var gananciaUnit = est.GananciaNetaEstimada ?? 0m;
 
         return new VentaLinea
         {
             ProductoId = producto.Id,
+            VarianteId = variante?.Id,
+            VarianteLabel = variante != null ? BuildVarianteLabel(variante) : null,
             ProductoNombre = producto.NombrePublico ?? producto.Nombre,
             Cantidad = input.Cantidad,
             PrecioUnitarioVenta = precioUnitario,
@@ -240,8 +285,9 @@ public class VentasService
             costoCompra = costoBase.Value * pres.CantidadUnidadBase;
 
         GananciaEstimadaDto? ganancia = null;
+        var iva = await _pricing.ResolveIvaAsync(producto);
         if (precio.HasValue)
-            ganancia = GananciaService.Estimar(producto, precio.Value, costoCompra);
+            ganancia = GananciaService.Estimar(producto, precio.Value, costoCompra, iva);
 
         return new ProductoVentaPrecioDto(
             producto.Id,
@@ -250,7 +296,11 @@ public class VentasService
             pres?.Nombre ?? producto.EtiquetaUnidadCompra,
             ganancia?.GananciaNetaEstimada,
             producto.ModoOrigenEconomico.ToString(),
-            ganancia?.Nota
+            ganancia?.Nota,
+            ganancia?.CostoReferencia,
+            iva,
+            producto.CostoMateriales,
+            producto.ManoObra
         );
     }
 
@@ -265,5 +315,18 @@ public class VentasService
             throw new InvalidOperationException("Medio de pago inválido o inactivo.");
 
         return medio.Slug;
+    }
+
+    private async Task<string> ValidarTurnoAsync(string? slug)
+    {
+        if (string.IsNullOrWhiteSpace(slug))
+            throw new InvalidOperationException("El turno es obligatorio.");
+
+        var normalizado = slug.Trim().ToUpperInvariant();
+        var turno = await _db.TurnosVenta.FirstOrDefaultAsync(t => t.Slug == normalizado && t.Activo);
+        if (turno == null)
+            throw new InvalidOperationException("Turno inválido o inactivo.");
+
+        return turno.Slug;
     }
 }

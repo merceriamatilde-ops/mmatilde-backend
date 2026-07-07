@@ -1,6 +1,20 @@
 namespace MMatilde.Api.DTOs;
 
-public record ProductoAdminDto(int Id, string CodigoMakor, string Nombre, string Categoria, decimal? PrecioMayorista, decimal? PrecioMinorista, bool Activo, bool Destacado, DateTime? UltimaSync);
+public record ProductoAdminDto(
+    int Id,
+    string CodigoMakor,
+    string Nombre,
+    string Categoria,
+    decimal? PrecioMayorista,
+    decimal? PrecioMinorista,
+    decimal? PrecioVentaFinal,
+    bool Activo,
+    bool Destacado,
+    DateTime? UltimaSync,
+    string ModoOrigenEconomico,
+    string ModoPrecio,
+    int? ProveedorId
+);
 public record ProductoAdminListResponse(List<ProductoAdminDto> Items, int Total, int Page, int PageSize, int TotalPages);
 public record ProductoCatalogoDto(int Id, string Slug, string Nombre, string Categoria, string? ImagenUrl);
 public record ProductoDetalleDto(int Id, string Slug, string Nombre, string? Descripcion, string Categoria, string CategoriaSlug, string? Subcategoria, string? SubcategoriaSlug, List<string> Imagenes, List<VarianteResponseDto>? Variantes = null, List<ProductoRelacionadoDto>? Relacionados = null, List<TagResumenDto>? Tags = null);

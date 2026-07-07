@@ -29,6 +29,7 @@ public class AppDbContext : DbContext
     public DbSet<Venta> Ventas { get; set; }
     public DbSet<VentaLinea> VentaLineas { get; set; }
     public DbSet<MedioPago> MediosPago { get; set; }
+    public DbSet<TurnoVentaConfig> TurnosVenta { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -182,6 +183,8 @@ public class AppDbContext : DbContext
             b.Property(e => e.TitularConsignacion).HasColumnName("titular_consignacion").HasMaxLength(200);
             b.Property(e => e.CostoMateriales).HasColumnName("costo_materiales").HasColumnType("numeric(18,2)");
             b.Property(e => e.ManoObra).HasColumnName("mano_obra").HasColumnType("numeric(18,2)");
+            b.Property(e => e.MargenElaboracionPorcentaje).HasColumnName("margen_elaboracion_porcentaje").HasColumnType("numeric(5,2)");
+            b.Property(e => e.MargenElaboracionMonto).HasColumnName("margen_elaboracion_monto").HasColumnType("numeric(18,2)");
             b.Property(e => e.Destacado).HasColumnName("destacado").HasDefaultValue(false);
             b.Property(e => e.Activo).HasColumnName("activo").HasDefaultValue(false);
             b.Property(e => e.CategoriaId).HasColumnName("categoria_id");
@@ -456,7 +459,7 @@ public class AppDbContext : DbContext
             b.HasKey(e => e.Id);
             b.Property(e => e.Id).HasColumnName("id");
             b.Property(e => e.Fecha).HasColumnName("fecha");
-            b.Property(e => e.Turno).HasColumnName("turno").HasConversion<string>();
+            b.Property(e => e.Turno).HasColumnName("turno").HasMaxLength(40).IsRequired();
             b.Property(e => e.MedioPagoSlug).HasColumnName("medio_pago").HasMaxLength(120).IsRequired();
             b.Property(e => e.Total).HasColumnName("total").HasColumnType("numeric(18,2)");
             b.Property(e => e.GananciaNetaEstimada).HasColumnName("ganancia_neta_estimada").HasColumnType("numeric(18,2)");
@@ -473,6 +476,8 @@ public class AppDbContext : DbContext
             b.Property(e => e.Id).HasColumnName("id");
             b.Property(e => e.VentaId).HasColumnName("venta_id");
             b.Property(e => e.ProductoId).HasColumnName("producto_id");
+            b.Property(e => e.VarianteId).HasColumnName("variante_id");
+            b.Property(e => e.VarianteLabel).HasColumnName("variante_label").HasMaxLength(200);
             b.Property(e => e.ProductoNombre).HasColumnName("producto_nombre").HasMaxLength(500).IsRequired();
             b.Property(e => e.Cantidad).HasColumnName("cantidad").HasColumnType("numeric(18,4)");
             b.Property(e => e.PrecioUnitarioVenta).HasColumnName("precio_unitario_venta").HasColumnType("numeric(18,2)");
@@ -500,6 +505,21 @@ public class AppDbContext : DbContext
             b.Property(e => e.Activo).HasColumnName("activo").HasDefaultValue(true);
             b.Property(e => e.EsDefault).HasColumnName("es_default").HasDefaultValue(false);
             b.Property(e => e.Orden).HasColumnName("orden").HasDefaultValue(0);
+            b.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            b.Property(e => e.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
+        });
+
+        modelBuilder.Entity<TurnoVentaConfig>(b =>
+        {
+            b.ToTable("turnos_venta");
+            b.HasKey(e => e.Id);
+            b.Property(e => e.Id).HasColumnName("id");
+            b.Property(e => e.Slug).HasColumnName("slug").HasMaxLength(40).IsRequired();
+            b.HasIndex(e => e.Slug).IsUnique();
+            b.Property(e => e.Nombre).HasColumnName("nombre").HasMaxLength(120).IsRequired();
+            b.Property(e => e.Orden).HasColumnName("orden").HasDefaultValue(0);
+            b.Property(e => e.Activo).HasColumnName("activo").HasDefaultValue(true);
+            b.Property(e => e.HoraDesde).HasColumnName("hora_desde");
             b.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             b.Property(e => e.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
         });
