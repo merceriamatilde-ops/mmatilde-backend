@@ -31,6 +31,7 @@ public record VentaLineaDto(
     int ProductoId,
     int? VarianteId,
     string? VarianteLabel,
+    int? PresentacionId,
     string? PresentacionNombre,
     string ProductoNombre,
     decimal Cantidad,

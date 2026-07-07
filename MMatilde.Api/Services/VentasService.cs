@@ -179,6 +179,7 @@ public class VentasService
                 l.ProductoId,
                 l.VarianteId,
                 l.VarianteLabel,
+                l.PresentacionId,
                 l.PresentacionNombre,
                 l.ProductoNombre,
                 l.Cantidad,
