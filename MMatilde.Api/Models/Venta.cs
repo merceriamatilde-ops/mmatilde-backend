@@ -5,7 +5,11 @@ public class Venta
 {
     public int Id { get; set; }
     public DateTime Fecha { get; set; } = DateTime.UtcNow;
+    public TurnoVenta Turno { get; set; } = TurnoVenta.MANANA;
+    /// <summary>Slug del medio de pago (tabla medios_pago).</summary>
+    public string MedioPagoSlug { get; set; } = string.Empty;
     public decimal Total { get; set; }
+    public decimal GananciaNetaEstimada { get; set; }
     public string? Notas { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

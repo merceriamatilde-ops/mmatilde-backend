@@ -53,6 +53,16 @@ public static class SeedData
 
         await db.SaveChangesAsync();
 
+        if (!await db.MediosPago.AnyAsync())
+        {
+            db.MediosPago.AddRange(
+                new MedioPago { Nombre = "Efectivo", Slug = "efectivo", EsDefault = true, Orden = 1 },
+                new MedioPago { Nombre = "Transferencia", Slug = "transferencia", Orden = 2 },
+                new MedioPago { Nombre = "Mixto", Slug = "mixto", Orden = 3 }
+            );
+            await db.SaveChangesAsync();
+        }
+
         var categoriasNombres = new[] {
             "Abrojos", "Agujas y Alfileres", "Anilinas y Quitamanchas", "Apliques", "Bies",
             "Bijou", "Botones y Broches", "Cierres y Deslizadores", "Cintas", "Complementos",

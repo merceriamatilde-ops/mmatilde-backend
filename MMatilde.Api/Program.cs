@@ -83,6 +83,8 @@ builder.Services.AddHttpClient<MakorScraperService>()
 
 builder.Services.AddScoped<SyncService>();
 builder.Services.AddScoped<PricingService>();
+builder.Services.AddScoped<VentasService>();
+builder.Services.AddScoped<EstadisticasService>();
 
 //
 // =========================

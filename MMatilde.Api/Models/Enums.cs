@@ -28,6 +28,13 @@ public enum ModoOrigenEconomico
     SIN_COSTO
 }
 
+/// <summary>Turno operativo del local.</summary>
+public enum TurnoVenta
+{
+    MANANA,
+    TARDE
+}
+
 /// <summary>Unidad mínima para cálculos de costo y presentaciones de venta.</summary>
 public enum UnidadMedida
 {

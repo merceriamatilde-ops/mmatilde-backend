@@ -28,6 +28,7 @@ public class AppDbContext : DbContext
     public DbSet<IaEjemplo> IaEjemplos { get; set; }
     public DbSet<Venta> Ventas { get; set; }
     public DbSet<VentaLinea> VentaLineas { get; set; }
+    public DbSet<MedioPago> MediosPago { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -455,10 +456,14 @@ public class AppDbContext : DbContext
             b.HasKey(e => e.Id);
             b.Property(e => e.Id).HasColumnName("id");
             b.Property(e => e.Fecha).HasColumnName("fecha");
+            b.Property(e => e.Turno).HasColumnName("turno").HasConversion<string>();
+            b.Property(e => e.MedioPagoSlug).HasColumnName("medio_pago").HasMaxLength(120).IsRequired();
             b.Property(e => e.Total).HasColumnName("total").HasColumnType("numeric(18,2)");
+            b.Property(e => e.GananciaNetaEstimada).HasColumnName("ganancia_neta_estimada").HasColumnType("numeric(18,2)");
             b.Property(e => e.Notas).HasColumnName("notas");
             b.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             b.HasIndex(e => e.Fecha);
+            b.HasIndex(e => e.Turno);
         });
 
         modelBuilder.Entity<VentaLinea>(b =>
@@ -482,6 +487,21 @@ public class AppDbContext : DbContext
             b.HasIndex(e => e.ProductoId);
             b.HasOne(e => e.Venta).WithMany(v => v.Lineas).HasForeignKey(e => e.VentaId).OnDelete(DeleteBehavior.Cascade);
             b.HasOne(e => e.Producto).WithMany().HasForeignKey(e => e.ProductoId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<MedioPago>(b =>
+        {
+            b.ToTable("medios_pago");
+            b.HasKey(e => e.Id);
+            b.Property(e => e.Id).HasColumnName("id");
+            b.Property(e => e.Nombre).HasColumnName("nombre").HasMaxLength(120).IsRequired();
+            b.Property(e => e.Slug).HasColumnName("slug").HasMaxLength(120).IsRequired();
+            b.HasIndex(e => e.Slug).IsUnique();
+            b.Property(e => e.Activo).HasColumnName("activo").HasDefaultValue(true);
+            b.Property(e => e.EsDefault).HasColumnName("es_default").HasDefaultValue(false);
+            b.Property(e => e.Orden).HasColumnName("orden").HasDefaultValue(0);
+            b.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            b.Property(e => e.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
         });
     }
 }
