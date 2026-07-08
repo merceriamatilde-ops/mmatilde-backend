@@ -369,6 +369,9 @@ public class AppDbContext : DbContext
             b.Property(e => e.ProductosNuevos).HasColumnName("productos_nuevos").HasDefaultValue(0);
             b.Property(e => e.ProductosActualizados).HasColumnName("productos_actualizados").HasDefaultValue(0);
             b.Property(e => e.Errores).HasColumnName("errores").HasDefaultValue(0);
+            b.Property(e => e.TermsJson).HasColumnName("terms_json").HasColumnType("jsonb");
+            b.Property(e => e.CategoriasJson).HasColumnName("categorias_json").HasColumnType("jsonb");
+            b.Property(e => e.ResumenJson).HasColumnName("resumen_json").HasColumnType("jsonb");
             b.Property(e => e.DetalleErrores).HasColumnName("detalle_errores").HasColumnType("jsonb");
             b.Property(e => e.IniciadoEn).HasColumnName("iniciado_en").HasDefaultValueSql("now()");
             b.Property(e => e.FinalizadoEn).HasColumnName("finalizado_en");

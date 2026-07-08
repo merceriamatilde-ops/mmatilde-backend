@@ -67,6 +67,15 @@ public class VentasService
             .Take(Math.Clamp(limit, 5, 30))
             .ToListAsync();
 
+        var persistPresentaciones = false;
+        foreach (var p in productos)
+        {
+            if (await _pricing.EnsurePresentacionVentaListaAsync(p))
+                persistPresentaciones = true;
+        }
+        if (persistPresentaciones)
+            await _db.SaveChangesAsync();
+
         var result = new List<ProductoVentaBusquedaDto>();
         foreach (var p in productos)
         {
@@ -191,12 +200,21 @@ public class VentasService
             .ToList()
     );
 
-    private async Task<Producto?> LoadProducto(int id) =>
-        await _db.Productos
+    private async Task<Producto?> LoadProducto(int id)
+    {
+        var producto = await _db.Productos
             .Include(p => p.Presentaciones)
             .Include(p => p.Variantes)
                 .ThenInclude(v => v.Color)
             .FirstOrDefaultAsync(p => p.Id == id);
+
+        if (producto == null) return null;
+
+        if (await _pricing.EnsurePresentacionVentaListaAsync(producto))
+            await _db.SaveChangesAsync();
+
+        return producto;
+    }
 
     private static List<ProductoVentaVarianteDto> MapVariantesVenta(Producto producto) =>
         producto.Variantes
@@ -314,6 +332,11 @@ public class VentasService
             precio = await _pricing.CalcularPrecioVentaAsync(producto, pres);
         precio ??= producto.PrecioMinorista;
 
+        var tienePresentacionesActivas = producto.Presentaciones.Any(p => p.Activo);
+        var unidadVenta = pres?.Nombre;
+        if (string.IsNullOrWhiteSpace(unidadVenta) && !tienePresentacionesActivas)
+            unidadVenta = producto.EtiquetaUnidadCompra;
+
         var costoBase = _pricing.CostoPorUnidadBase(producto);
         decimal? costoCompra = null;
         if (costoBase.HasValue && pres != null)
@@ -326,7 +349,7 @@ public class VentasService
 
         return new PresentacionPrecioMapped(
             precio,
-            pres?.Nombre ?? producto.EtiquetaUnidadCompra,
+            unidadVenta,
             ganancia?.GananciaNetaEstimada,
             ganancia?.CostoReferencia,
             costoCompra,

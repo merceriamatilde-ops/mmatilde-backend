@@ -8,6 +8,7 @@ public record ProductoAdminDto(
     decimal? PrecioMayorista,
     decimal? PrecioMinorista,
     decimal? PrecioVentaFinal,
+    string? PrecioVentaPresentacion,
     bool Activo,
     bool Destacado,
     DateTime? UltimaSync,

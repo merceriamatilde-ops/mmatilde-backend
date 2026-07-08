@@ -10,13 +10,25 @@ namespace MMatilde.Api.Services;
 
 public class SyncService
 {
+    private sealed class SyncTermResumen
+    {
+        public string Term { get; set; } = string.Empty;
+        public bool EsCategoria { get; set; }
+        public int ProductosEncontrados { get; set; }
+        public int ProductosNuevos { get; set; }
+        public int ProductosActualizados { get; set; }
+        public int Errores { get; set; }
+    }
+
     private readonly AppDbContext _db;
     private readonly MakorScraperService _scraper;
+    private readonly PricingService _pricing;
 
-    public SyncService(AppDbContext db, MakorScraperService scraper)
+    public SyncService(AppDbContext db, MakorScraperService scraper, PricingService pricing)
     {
         _db = db;
         _scraper = scraper;
+        _pricing = pricing;
     }
 
     public async Task<SyncResponse> ExecuteSync(List<string> terms)
@@ -24,13 +36,26 @@ public class SyncService
         var provider = await _db.Proveedores.FirstOrDefaultAsync(p => p.Slug == "makor");
         if (provider == null) return new SyncResponse(false, 0);
 
-        var log = new SyncLog { ProveedorId = provider.Id, Estado = EstadoSync.EN_PROCESO };
+        var cleanTerms = terms
+            .Where(t => !string.IsNullOrWhiteSpace(t))
+            .Select(t => t.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var log = new SyncLog
+        {
+            ProveedorId = provider.Id,
+            Estado = EstadoSync.EN_PROCESO,
+            TermsJson = JsonSerializer.Serialize(cleanTerms)
+        };
         _db.SyncLogs.Add(log);
         await _db.SaveChangesAsync();
 
         int totalUpserted = 0;
         int errors = 0;
         var errorDetails = new List<string>();
+        var categoriasAfectadas = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var resumenPorTermino = new List<SyncTermResumen>();
 
         try
         {
@@ -43,13 +68,14 @@ public class SyncService
             var allCategories = await _db.Categorias.ToListAsync();
             var allSubcategories = await _db.Subcategorias.ToListAsync();
 
-            foreach (var term in terms)
+            foreach (var term in cleanTerms)
             {
                 // Si el term corresponde a un slug de categoría, usamos la categoría, sino la búsqueda.
                 // Como pasamos el slug desde el frontend, podemos usar GetProductsByCategory directamente si coincide con algún slug nuestro o si es un slug típico.
                 // Para ser seguros, si tiene espacios, es búsqueda libre. Si tiene guiones, asumimos slug de categoría de makor.
                 List<MakorProductScraped> scrapedProducts;
-                if (term.Contains("-") && !term.Contains(" "))
+                var esCategoria = term.Contains("-") && !term.Contains(" ");
+                if (esCategoria)
                 {
                     scrapedProducts = await _scraper.GetProductsByCategory(term);
                 }
@@ -57,6 +83,14 @@ public class SyncService
                 {
                     scrapedProducts = await _scraper.SearchProducts(term);
                 }
+
+                var resumenTerm = new SyncTermResumen
+                {
+                    Term = term,
+                    EsCategoria = esCategoria,
+                    ProductosEncontrados = scrapedProducts.Count
+                };
+                resumenPorTermino.Add(resumenTerm);
 
                 foreach (var scraped in scrapedProducts)
                 {
@@ -74,6 +108,8 @@ public class SyncService
                             allCategories.Add(cat);
                         }
 
+                        categoriasAfectadas.Add(cat.Nombre);
+
                         Subcategoria? subcat = null;
                         if (!string.IsNullOrEmpty(scraped.SubcategoriaSlug))
                         {
@@ -88,6 +124,8 @@ public class SyncService
                                 await _db.SaveChangesAsync();
                                 allSubcategories.Add(subcat);
                             }
+
+                            categoriasAfectadas.Add($"{cat.Nombre} > {subcat.Nombre}");
                         }
 
                         var prod = await _db.Productos
@@ -110,6 +148,7 @@ public class SyncService
                             };
                             _db.Productos.Add(prod);
                             log.ProductosNuevos++;
+                            resumenTerm.ProductosNuevos++;
                         }
                         else
                         {
@@ -123,10 +162,13 @@ public class SyncService
                             prod.UltimaSync = DateTime.UtcNow;
                             prod.UpdatedAt = DateTime.UtcNow;
                             log.ProductosActualizados++;
+                            resumenTerm.ProductosActualizados++;
                         }
 
-                        if (prod.UnidadBase == null)
+                        if (prod.UnidadBase == null || prod.UnidadCompraAutoDetectada)
                             AplicarUnidadDetectada(prod, scraped.Nombre);
+
+                        await _pricing.EnsurePresentacionVentaListaAsync(prod);
                         await _db.SaveChangesAsync();
                         totalUpserted++;
 
@@ -155,6 +197,7 @@ public class SyncService
                     catch (Exception ex)
                     {
                         errors++;
+                        resumenTerm.Errores++;
                         errorDetails.Add($"Error on {scraped.CodigoMakor}: {ex.Message}");
                     }
                 }
@@ -163,6 +206,8 @@ public class SyncService
             provider.UltimaSync = DateTime.UtcNow;
             log.Estado = errors == 0 ? EstadoSync.COMPLETADO : (totalUpserted > 0 ? EstadoSync.COMPLETADO : EstadoSync.ERROR);
             log.Errores = errors;
+            log.CategoriasJson = JsonSerializer.Serialize(categoriasAfectadas.OrderBy(x => x).ToList());
+            log.ResumenJson = JsonSerializer.Serialize(resumenPorTermino);
             log.FinalizadoEn = DateTime.UtcNow;
             if (errorDetails.Count > 0)
             {
@@ -176,22 +221,16 @@ public class SyncService
         {
             log.Estado = EstadoSync.ERROR;
             log.FinalizadoEn = DateTime.UtcNow;
+            log.CategoriasJson = JsonSerializer.Serialize(categoriasAfectadas.OrderBy(x => x).ToList());
+            log.ResumenJson = JsonSerializer.Serialize(resumenPorTermino);
             log.DetalleErrores = JsonSerializer.Serialize(new[] { ex.Message });
             await _db.SaveChangesAsync();
             return new SyncResponse(false, 0);
         }
     }
 
-    private static void AplicarUnidadDetectada(Producto prod, string nombre)
-    {
-        var detected = UnidadParser.TryParse(nombre);
-        if (detected == null) return;
-
-        prod.UnidadBase = detected.UnidadBase;
-        prod.CantidadUnidadCompra = detected.CantidadUnidadCompra;
-        prod.EtiquetaUnidadCompra = detected.Etiqueta;
-        prod.UnidadCompraAutoDetectada = true;
-    }
+    private static void AplicarUnidadDetectada(Producto prod, string nombre) =>
+        UnidadParser.TryApplyTo(prod, nombre);
 
     private string NormalizeName(string text)
     {

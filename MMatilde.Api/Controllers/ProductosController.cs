@@ -38,8 +38,9 @@ public class ProductosController : ControllerBase
             .Include(p => p.Subcategoria)
             .AsQueryable();
 
-        if (!string.IsNullOrEmpty(q))
+        if (!string.IsNullOrWhiteSpace(q))
         {
+            q = q.Trim();
             query = query.Where(p => 
                 EF.Functions.ILike(p.Nombre, $"%{q}%") || 
                 (p.NombrePublico != null && EF.Functions.ILike(p.NombrePublico, $"%{q}%")) ||
@@ -78,6 +79,10 @@ public class ProductosController : ControllerBase
         var items = new List<ProductoAdminDto>(products.Count);
         foreach (var p in products)
         {
+            if (p.UnidadCompraAutoDetectada)
+                UnidadParser.TryApplyTo(p, p.Nombre);
+            _pricing.EnsurePresentacionVentaDefault(p);
+
             var venta = await _pricing.ResolverPrecioVentaDefaultAsync(p);
             items.Add(new ProductoAdminDto(
                 p.Id,
@@ -87,6 +92,7 @@ public class ProductosController : ControllerBase
                 p.PrecioMayorista,
                 p.PrecioMinorista,
                 venta.PrecioVentaFinal,
+                venta.PresentacionNombre,
                 p.Activo,
                 p.Destacado,
                 p.UltimaSync,

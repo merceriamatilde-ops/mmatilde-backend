@@ -42,6 +42,9 @@ public class SyncController : ControllerBase
                 l.ProductosNuevos,
                 l.ProductosActualizados,
                 l.Errores,
+                l.TermsJson,
+                l.CategoriasJson,
+                l.ResumenJson,
                 l.DetalleErrores,
                 l.IniciadoEn,
                 l.FinalizadoEn

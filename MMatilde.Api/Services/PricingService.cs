@@ -4,6 +4,8 @@ using MMatilde.Api.Data;
 
 using MMatilde.Api.DTOs;
 
+using MMatilde.Api.Helpers;
+
 using MMatilde.Api.Models;
 
 
@@ -156,7 +158,9 @@ public class PricingService
 
         var costoBase = CostoPorUnidadBase(producto);
 
-        if (!costoBase.HasValue || presentacion.CantidadUnidadBase <= 0) return null;
+        if (!costoBase.HasValue || presentacion.CantidadUnidadBase <= 0)
+
+            return presentacion.PrecioVenta;
 
 
 
@@ -240,6 +244,144 @@ public class PricingService
 
     }
 
+    public static string DefaultPresentacionNombre(UnidadMedida? unidad) => unidad switch
+    {
+        UnidadMedida.g => "1 g",
+        UnidadMedida.cm => "1 cm",
+        UnidadMedida.m => "1 m",
+        UnidadMedida.ml => "1 ml",
+        _ => "Unidad",
+    };
+
+    private static (string Nombre, decimal CantidadUnidadBase) GetPresentacionVentaDefault(Producto producto)
+    {
+        if (UnidadParser.EsProductoEnMetros(producto))
+            return producto.UnidadBase == UnidadMedida.m ? ("1 m", 1m) : ("1 m", 100m);
+
+        return (DefaultPresentacionNombre(producto.UnidadBase), 1m);
+    }
+
+    public static string PaqueteCerradoNombre(Producto producto)
+    {
+        var detalle = string.IsNullOrWhiteSpace(producto.EtiquetaUnidadCompra)
+            ? null
+            : producto.EtiquetaUnidadCompra.Trim();
+        return string.IsNullOrWhiteSpace(detalle)
+            ? "Paquete cerrado"
+            : $"Paquete cerrado ({detalle})";
+    }
+
+    public bool EnsurePresentacionVentaDefault(Producto producto)
+    {
+        if (producto.ModoOrigenEconomico == ModoOrigenEconomico.ELABORACION_PROPIA)
+            return false;
+
+        var changed = false;
+        var activas = producto.Presentaciones.Where(p => p.Activo).ToList();
+
+        if (activas.Count == 0)
+        {
+            var defaultPresentacion = GetPresentacionVentaDefault(producto);
+            producto.Presentaciones.Add(new ProductoPresentacion
+            {
+                Nombre = defaultPresentacion.Nombre,
+                CantidadUnidadBase = defaultPresentacion.CantidadUnidadBase,
+                EsDefault = true,
+                Activo = true,
+                Orden = 0,
+            });
+            changed = true;
+            activas = producto.Presentaciones.Where(p => p.Activo).ToList();
+        }
+        else if (UnidadParser.EsProductoEnMetros(producto))
+        {
+            var expected = GetPresentacionVentaDefault(producto);
+            var correcta = activas.FirstOrDefault(p => p.Nombre == expected.Nombre);
+            var defaultActual = activas.FirstOrDefault(p => p.EsDefault);
+
+            if (correcta != null && defaultActual != null && !ReferenceEquals(defaultActual, correcta))
+            {
+                defaultActual.EsDefault = false;
+                correcta.EsDefault = true;
+                correcta.CantidadUnidadBase = expected.CantidadUnidadBase;
+                correcta.UpdatedAt = DateTime.UtcNow;
+                changed = true;
+                activas = producto.Presentaciones.Where(p => p.Activo).ToList();
+            }
+            else
+            {
+                var wrongDefault = activas.FirstOrDefault(p =>
+                    p.EsDefault &&
+                    p.Nombre is "1 cm" or "Unidad");
+                if (wrongDefault != null)
+                {
+                    wrongDefault.Nombre = expected.Nombre;
+                    wrongDefault.CantidadUnidadBase = expected.CantidadUnidadBase;
+                    wrongDefault.UpdatedAt = DateTime.UtcNow;
+                    changed = true;
+                    activas = producto.Presentaciones.Where(p => p.Activo).ToList();
+                }
+            }
+        }
+
+        if (producto.CantidadUnidadCompra.HasValue && producto.CantidadUnidadCompra.Value > 1m)
+        {
+            var cantidadPaquete = producto.CantidadUnidadCompra.Value;
+            var yaExistePaquete = activas.Any(p => p.CantidadUnidadBase == cantidadPaquete);
+            if (!yaExistePaquete)
+            {
+                var nextOrder = activas.Count == 0 ? 1 : activas.Max(p => p.Orden) + 1;
+                producto.Presentaciones.Add(new ProductoPresentacion
+                {
+                    Nombre = PaqueteCerradoNombre(producto),
+                    CantidadUnidadBase = cantidadPaquete,
+                    EsDefault = false,
+                    Activo = true,
+                    Orden = nextOrder,
+                });
+                changed = true;
+            }
+        }
+
+        return changed;
+    }
+
+    public async Task<bool> EnsurePresentacionVentaListaAsync(Producto producto)
+    {
+        if (!EnsurePresentacionVentaDefault(producto))
+            return false;
+
+        if (producto.ModoPrecio == ModoPrecio.PRECIO_FIJO)
+        {
+            if (producto.PrecioMinorista.HasValue)
+            {
+                foreach (var p in producto.Presentaciones.Where(x => x.Activo))
+                    p.PrecioVenta = producto.PrecioMinorista;
+            }
+        }
+        else if (CostoPorUnidadBase(producto).HasValue)
+        {
+            await RecalcularPresentacionesAsync(producto);
+        }
+
+        producto.UpdatedAt = DateTime.UtcNow;
+        return true;
+    }
+
+    private static ProductoPresentacion SeleccionarPresentacionReferencia(
+        Producto producto,
+        List<ProductoPresentacion> activas)
+    {
+        if (UnidadParser.EsProductoEnMetros(producto))
+        {
+            var expected = GetPresentacionVentaDefault(producto);
+            var porNombre = activas.FirstOrDefault(p => p.Nombre == expected.Nombre);
+            if (porNombre != null) return porNombre;
+        }
+
+        return activas[0];
+    }
+
     public async Task<PrecioVentaResumenDto> ResolverPrecioVentaDefaultAsync(Producto producto)
     {
         var activas = producto.Presentaciones
@@ -253,7 +395,7 @@ public class PricingService
 
         if (activas.Count > 0)
         {
-            presRef = activas[0];
+            presRef = SeleccionarPresentacionReferencia(producto, activas);
             nombre = string.IsNullOrWhiteSpace(presRef.Nombre) ? null : presRef.Nombre;
         }
         else if (producto.ModoPrecio == ModoPrecio.PRECIO_FIJO)
@@ -263,11 +405,13 @@ public class PricingService
         }
         else
         {
-            var cantidad = producto.CantidadUnidadCompra is > 0 ? producto.CantidadUnidadCompra.Value : 1m;
-            nombre = !string.IsNullOrWhiteSpace(producto.EtiquetaUnidadCompra)
-                ? producto.EtiquetaUnidadCompra
-                : $"Paquete x{cantidad:G0}";
-            presRef = new ProductoPresentacion { CantidadUnidadBase = cantidad, Nombre = nombre };
+            var defaultPresentacion = GetPresentacionVentaDefault(producto);
+            nombre = defaultPresentacion.Nombre;
+            presRef = new ProductoPresentacion
+            {
+                CantidadUnidadBase = defaultPresentacion.CantidadUnidadBase,
+                Nombre = nombre
+            };
         }
 
         var calculado = await CalcularPrecioVentaAsync(producto, presRef);

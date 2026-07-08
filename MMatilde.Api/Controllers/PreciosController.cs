@@ -128,6 +128,19 @@ public class PreciosController : ControllerBase
             .FirstOrDefaultAsync(p => p.Id == id);
         if (prod == null) return NotFound();
 
+        var changed = false;
+        if (prod.UnidadCompraAutoDetectada && UnidadParser.TryApplyTo(prod, prod.Nombre))
+            changed = true;
+
+        if (await _pricing.EnsurePresentacionVentaListaAsync(prod))
+            changed = true;
+
+        if (changed)
+        {
+            prod.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+        }
+
         return await MapProductoUnidades(prod);
     }
 
@@ -167,6 +180,9 @@ public class PreciosController : ControllerBase
         prod.ManoObra = dto.ManoObra;
         prod.MargenElaboracionPorcentaje = dto.MargenElaboracionPorcentaje;
         prod.MargenElaboracionMonto = dto.MargenElaboracionMonto;
+
+        if (dto.PrecioCompra.HasValue && dto.PrecioCompra.Value > 0)
+            prod.PrecioMayorista = dto.PrecioCompra.Value;
 
         if (dto.Presentaciones != null)
         {

@@ -95,6 +95,7 @@ public record ProductoUnidadesUpdateDto(
     decimal? MargenElaboracionPorcentaje,
     decimal? MargenElaboracionMonto,
     List<PresentacionInputDto>? Presentaciones,
+    decimal? PrecioCompra,
     bool RecalcularPrecios = true
 );
 
