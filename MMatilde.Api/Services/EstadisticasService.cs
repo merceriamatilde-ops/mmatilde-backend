@@ -41,8 +41,13 @@ public class EstadisticasService
 
         var mediosMap = await _db.MediosPago.ToDictionaryAsync(m => m.Slug, m => m.Nombre);
         var categoriasMap = await _db.Categorias.ToDictionaryAsync(c => c.Id, c => c.Nombre);
+        var productoIds = lineas
+            .Where(l => l.ProductoId.HasValue)
+            .Select(l => l.ProductoId!.Value)
+            .Distinct()
+            .ToList();
         var productoCategorias = await _db.Productos
-            .Where(p => lineas.Where(l => l.ProductoId.HasValue).Select(l => l.ProductoId!.Value).Distinct().Contains(p.Id))
+            .Where(p => productoIds.Contains(p.Id))
             .Select(p => new { p.Id, p.CategoriaId })
             .ToDictionaryAsync(p => p.Id, p => p.CategoriaId);
 

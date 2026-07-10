@@ -1,3 +1,4 @@
+using MMatilde.Api.DTOs;
 using MMatilde.Api.Models;
 
 namespace MMatilde.Api.Helpers;
@@ -5,7 +6,18 @@ namespace MMatilde.Api.Helpers;
 public static class ProductoDisplay
 {
     public static string NombrePublico(Producto p) =>
-        !string.IsNullOrWhiteSpace(p.NombrePublico) ? p.NombrePublico! : p.Nombre;
+        !string.IsNullOrWhiteSpace(p.NombrePublico)
+            ? p.NombrePublico!
+            : MakorPublicContent.SuggestTitle(p.Nombre);
+
+    public static ProductoCatalogoDto ToCatalogoDto(Producto p, string? categoriaNombre = null) =>
+        new(
+            p.Id,
+            p.Slug,
+            NombrePublico(p),
+            categoriaNombre ?? p.Categoria?.Nombre ?? "",
+            ImagenPublica(p)
+        );
 
     public static string? DescripcionPublica(Producto p) =>
         !string.IsNullOrWhiteSpace(p.DescripcionPublica) ? p.DescripcionPublica : p.Descripcion;

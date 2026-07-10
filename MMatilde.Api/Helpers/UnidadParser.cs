@@ -63,6 +63,11 @@ public static class UnidadParser
         }),
         (new Regex(@"\bdocena\b", Rx), _ =>
             new UnidadDetectada(UnidadMedida.unidad, 12m, "docena (12 u)", true)),
+        (new Regex(@"x\s*(\d+(?:[.,]\d+)?)\s*un\b", Rx), m =>
+        {
+            var n = ParseDecimal(m.Groups[1].Value);
+            return n is null ? null : new UnidadDetectada(UnidadMedida.unidad, n.Value, $"{Fmt(n)} u", true);
+        }),
         (new Regex(@"x\s*(\d+(?:[.,]\d+)?)\s*(?:u(?:n(?:idad(?:es)?)?)?|pzas?|piezas?)\b", Rx), m =>
         {
             var n = ParseDecimal(m.Groups[1].Value);
@@ -115,6 +120,43 @@ public static class UnidadParser
         producto.EtiquetaUnidadCompra = detected.Etiqueta;
         producto.UnidadCompraAutoDetectada = true;
         return true;
+    }
+
+    public static string StripUnidadSufijo(string? nombre)
+    {
+        if (string.IsNullOrWhiteSpace(nombre)) return nombre ?? string.Empty;
+
+        var trimmed = nombre.Trim();
+        Match? bestMatch = null;
+        var bestIndex = -1;
+        UnidadDetectada? best = null;
+
+        foreach (var (pattern, build) in Rules)
+        {
+            foreach (Match match in pattern.Matches(trimmed))
+            {
+                var result = build(match);
+                if (result == null) continue;
+
+                if (IsBetterMatch(match, result, bestIndex, best))
+                {
+                    best = result;
+                    bestMatch = match;
+                    bestIndex = match.Index;
+                }
+            }
+        }
+
+        if (bestMatch == null) return trimmed;
+
+        var tail = trimmed[(bestMatch.Index + bestMatch.Length)..].Trim();
+        if (!string.IsNullOrEmpty(tail) && !Regex.IsMatch(tail, @"^[\s.,;:\-–—/]+$"))
+            return trimmed;
+
+        var head = trimmed[..bestMatch.Index].TrimEnd();
+        if (string.IsNullOrWhiteSpace(head)) return trimmed;
+
+        return head.TrimEnd('-', '–', '—', ' ').Trim();
     }
 
     public static bool EsProductoEnMetros(Producto producto) =>

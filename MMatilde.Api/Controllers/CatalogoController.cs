@@ -28,31 +28,15 @@ public class CatalogoController : ControllerBase
             .Select(c => new CategoriaCardDto(c.Nombre, c.Icono ?? "", c.Slug, c.Productos.Count(p => p.Activo)))
             .ToListAsync();
 
-        var prods = await _db.Productos
+        var prods = (await _db.Productos
             .Include(p => p.Categoria)
             .Include(p => p.Imagenes)
             .Where(p => p.Activo)
             .OrderByDescending(p => p.Id)
             .Take(8)
-            .Select(p => new ProductoCatalogoDto(
-                p.Id,
-                p.Slug,
-                p.NombrePublico != null && p.NombrePublico != "" ? p.NombrePublico : p.Nombre,
-                p.Categoria != null ? p.Categoria.Nombre : "",
-                p.ImagenPublicaUrl ?? p.Imagenes
-                    .OrderByDescending(i => i.EsPrincipal)
-                    .ThenBy(i => i.Orden)
-                    .Where(i => !i.EsDeProveedor)
-                    .Select(i => i.UrlOriginal)
-                    .FirstOrDefault()
-                    ?? p.Imagenes
-                    .OrderByDescending(i => i.EsPrincipal)
-                    .ThenBy(i => i.Orden)
-                    .Where(i => i.EsDeProveedor)
-                    .Select(i => i.UrlOriginal)
-                    .FirstOrDefault()
-            ))
-            .ToListAsync();
+            .ToListAsync())
+            .Select(p => ProductoDisplay.ToCatalogoDto(p))
+            .ToList();
 
         var colecciones = await _db.Tags
             .Where(t => t.Activo && t.VisibleEnCatalogo)
@@ -89,7 +73,7 @@ public class CatalogoController : ControllerBase
             if (resultados.Count >= take) break;
 
             var patron = $"%{token}%";
-            var chunk = await _db.Productos
+            var chunk = (await _db.Productos
                 .Include(p => p.Categoria)
                 .Include(p => p.Subcategoria)
                 .Include(p => p.Imagenes)
@@ -103,25 +87,9 @@ public class CatalogoController : ControllerBase
                 .OrderByDescending(p => p.Destacado)
                 .ThenByDescending(p => p.Id)
                 .Take(take)
-                .Select(p => new ProductoCatalogoDto(
-                    p.Id,
-                    p.Slug,
-                    p.NombrePublico != null && p.NombrePublico != "" ? p.NombrePublico : p.Nombre,
-                    p.Categoria != null ? p.Categoria.Nombre : "",
-                    p.ImagenPublicaUrl ?? p.Imagenes
-                        .OrderByDescending(i => i.EsPrincipal)
-                        .ThenBy(i => i.Orden)
-                        .Where(i => !i.EsDeProveedor)
-                        .Select(i => i.UrlOriginal)
-                        .FirstOrDefault()
-                        ?? p.Imagenes
-                        .OrderByDescending(i => i.EsPrincipal)
-                        .ThenBy(i => i.Orden)
-                        .Where(i => i.EsDeProveedor)
-                        .Select(i => i.UrlOriginal)
-                        .FirstOrDefault()
-                ))
-                .ToListAsync();
+                .ToListAsync())
+                .Select(p => ProductoDisplay.ToCatalogoDto(p))
+                .ToList();
 
             foreach (var prod in chunk)
             {
@@ -180,27 +148,13 @@ public class CatalogoController : ControllerBase
         if (!string.IsNullOrWhiteSpace(categoria))
             productosQuery = productosQuery.Where(p => p.Categoria != null && p.Categoria.Slug == categoria);
 
-        var productos = await productosQuery
+        var productos = (await productosQuery
+            .Include(p => p.Categoria)
+            .Include(p => p.Imagenes)
             .OrderByDescending(p => p.Id)
-            .Select(p => new ProductoCatalogoDto(
-                p.Id,
-                p.Slug,
-                p.NombrePublico != null && p.NombrePublico != "" ? p.NombrePublico : p.Nombre,
-                p.Categoria != null ? p.Categoria.Nombre : "",
-                p.ImagenPublicaUrl ?? p.Imagenes
-                    .OrderByDescending(i => i.EsPrincipal)
-                    .ThenBy(i => i.Orden)
-                    .Where(i => !i.EsDeProveedor)
-                    .Select(i => i.UrlOriginal)
-                    .FirstOrDefault()
-                    ?? p.Imagenes
-                    .OrderByDescending(i => i.EsPrincipal)
-                    .ThenBy(i => i.Orden)
-                    .Where(i => i.EsDeProveedor)
-                    .Select(i => i.UrlOriginal)
-                    .FirstOrDefault()
-            ))
-            .ToListAsync();
+            .ToListAsync())
+            .Select(p => ProductoDisplay.ToCatalogoDto(p))
+            .ToList();
 
         return new ColeccionDetalleDto(tag.Nombre, tag.Slug, tag.Descripcion, tag.ColorHex, categorias, productos);
     }

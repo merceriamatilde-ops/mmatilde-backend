@@ -132,6 +132,7 @@ public class SyncService
                             .Include(p => p.Presentaciones)
                             .FirstOrDefaultAsync(p => p.CodigoMakor == scraped.CodigoMakor);
                         var isNew = prod == null;
+                        var nombreAnterior = prod?.Nombre;
                         if (isNew)
                         {
                             prod = new Producto
@@ -164,6 +165,8 @@ public class SyncService
                             log.ProductosActualizados++;
                             resumenTerm.ProductosActualizados++;
                         }
+
+                        MakorPublicContent.ApplySyncedPublicFields(prod, scraped.Nombre, nombreAnterior, isNew);
 
                         if (prod.UnidadBase == null || prod.UnidadCompraAutoDetectada)
                             AplicarUnidadDetectada(prod, scraped.Nombre);

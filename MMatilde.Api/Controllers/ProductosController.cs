@@ -132,7 +132,7 @@ public class ProductosController : ControllerBase
             items.Add(new ProductoAdminDto(
                 p.Id,
                 p.CodigoMakor,
-                p.NombrePublico != null && p.NombrePublico != "" ? p.NombrePublico : p.Nombre,
+                ProductoDisplay.NombrePublico(p),
                 p.Categoria != null ? (p.Subcategoria != null ? p.Categoria.Nombre + " > " + p.Subcategoria.Nombre : p.Categoria.Nombre) : "",
                 p.PrecioMayorista,
                 p.PrecioMinorista,

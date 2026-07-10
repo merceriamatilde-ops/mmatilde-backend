@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MMatilde.Api.Data;
 using MMatilde.Api.DTOs;
+using MMatilde.Api.Helpers;
 
 namespace MMatilde.Api.Controllers;
 
@@ -67,27 +68,12 @@ public class CategoriasController : ControllerBase
             query = query.Where(p => p.Subcategoria != null && p.Subcategoria.Slug == sub);
         }
 
-        var prods = await query
+        var prods = (await query
+            .Include(p => p.Imagenes)
             .OrderByDescending(p => p.Id)
-            .Select(p => new ProductoCatalogoDto(
-                p.Id,
-                p.Slug,
-                p.NombrePublico != null && p.NombrePublico != "" ? p.NombrePublico : p.Nombre,
-                cat.Nombre,
-                p.ImagenPublicaUrl ?? p.Imagenes
-                    .OrderByDescending(i => i.EsPrincipal)
-                    .ThenBy(i => i.Orden)
-                    .Where(i => !i.EsDeProveedor)
-                    .Select(i => i.UrlOriginal)
-                    .FirstOrDefault()
-                    ?? p.Imagenes
-                    .OrderByDescending(i => i.EsPrincipal)
-                    .ThenBy(i => i.Orden)
-                    .Where(i => i.EsDeProveedor)
-                    .Select(i => i.UrlOriginal)
-                    .FirstOrDefault()
-            ))
-            .ToListAsync();
+            .ToListAsync())
+            .Select(p => ProductoDisplay.ToCatalogoDto(p, cat.Nombre))
+            .ToList();
 
         var subs = await _db.Subcategorias
             .Where(s => s.CategoriaId == cat.Id && _db.Productos.Any(p => p.SubcategoriaId == s.Id && p.Activo))
