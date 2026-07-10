@@ -4,6 +4,8 @@ public record ProductoAdminDto(
     int Id,
     string CodigoMakor,
     string Nombre,
+    string? NombrePublico,
+    string? NombreCatalogo,
     string Categoria,
     decimal? PrecioMayorista,
     decimal? PrecioMinorista,

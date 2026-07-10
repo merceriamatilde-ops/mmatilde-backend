@@ -15,11 +15,13 @@ public class ProductosController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly PricingService _pricing;
+    private readonly SyncService _sync;
 
-    public ProductosController(AppDbContext db, PricingService pricing)
+    public ProductosController(AppDbContext db, PricingService pricing, SyncService sync)
     {
         _db = db;
         _pricing = pricing;
+        _sync = sync;
     }
 
     [HttpGet]
@@ -132,6 +134,8 @@ public class ProductosController : ControllerBase
             items.Add(new ProductoAdminDto(
                 p.Id,
                 p.CodigoMakor,
+                p.Nombre,
+                p.NombrePublico,
                 ProductoDisplay.NombrePublico(p),
                 p.Categoria != null ? (p.Subcategoria != null ? p.Categoria.Nombre + " > " + p.Subcategoria.Nombre : p.Categoria.Nombre) : "",
                 p.PrecioMayorista,
@@ -499,6 +503,20 @@ public class ProductosController : ControllerBase
 
         await _db.SaveChangesAsync();
         return Ok();
+    }
+
+    [HttpPost("{id}/sync")]
+    [Authorize]
+    public async Task<ActionResult<SyncResponse>> SyncProducto(int id)
+    {
+        var prod = await _db.Productos.FindAsync(id);
+        if (prod == null) return NotFound();
+
+        var result = await _sync.SyncProductoAsync(id);
+        if (!result.Success)
+            return BadRequest(new { message = "No se pudo sincronizar el producto con Makor." });
+
+        return result;
     }
 
     [HttpDelete("{id}")]

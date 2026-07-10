@@ -128,35 +128,42 @@ public static class UnidadParser
 
         var trimmed = nombre.Trim();
         Match? bestMatch = null;
-        var bestIndex = -1;
         UnidadDetectada? best = null;
 
         foreach (var (pattern, build) in Rules)
         {
             foreach (Match match in pattern.Matches(trimmed))
             {
+                if (match.Index + match.Length != trimmed.Length) continue;
+
                 var result = build(match);
                 if (result == null) continue;
 
-                if (IsBetterMatch(match, result, bestIndex, best))
+                if (best == null
+                    || (result.Confiable && !best.Confiable)
+                    || (result.Confiable == best.Confiable && match.Length > (bestMatch?.Length ?? 0)))
                 {
                     best = result;
                     bestMatch = match;
-                    bestIndex = match.Index;
                 }
             }
         }
 
-        if (bestMatch == null) return trimmed;
-
-        var tail = trimmed[(bestMatch.Index + bestMatch.Length)..].Trim();
-        if (!string.IsNullOrEmpty(tail) && !Regex.IsMatch(tail, @"^[\s.,;:\-–—/]+$"))
+        if (bestMatch == null)
+        {
+            var orphanX = Regex.Match(trimmed, @"\s+x\s*$", Rx);
+            if (orphanX.Success)
+            {
+                var head = trimmed[..orphanX.Index].TrimEnd();
+                return string.IsNullOrWhiteSpace(head) ? trimmed : head.TrimEnd('-', '–', '—', ' ').Trim();
+            }
             return trimmed;
+        }
 
-        var head = trimmed[..bestMatch.Index].TrimEnd();
-        if (string.IsNullOrWhiteSpace(head)) return trimmed;
+        var headText = trimmed[..bestMatch.Index].TrimEnd();
+        if (string.IsNullOrWhiteSpace(headText)) return trimmed;
 
-        return head.TrimEnd('-', '–', '—', ' ').Trim();
+        return headText.TrimEnd('-', '–', '—', ' ').Trim();
     }
 
     public static bool EsProductoEnMetros(Producto producto) =>

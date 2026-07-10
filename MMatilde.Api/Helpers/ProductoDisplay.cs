@@ -6,9 +6,11 @@ namespace MMatilde.Api.Helpers;
 public static class ProductoDisplay
 {
     public static string NombrePublico(Producto p) =>
-        !string.IsNullOrWhiteSpace(p.NombrePublico)
-            ? p.NombrePublico!
-            : MakorPublicContent.SuggestTitle(p.Nombre);
+        p.ProveedorId == 1
+            ? MakorPublicContent.ResolveTitle(p.Nombre, p.NombrePublico)
+            : !string.IsNullOrWhiteSpace(p.NombrePublico)
+                ? p.NombrePublico!.Trim()
+                : p.Nombre;
 
     public static ProductoCatalogoDto ToCatalogoDto(Producto p, string? categoriaNombre = null) =>
         new(

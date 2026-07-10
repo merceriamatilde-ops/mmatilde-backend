@@ -18,10 +18,19 @@ public static class MakorPublicContent
         {
             if (string.IsNullOrWhiteSpace(source)) continue;
             var raw = source.Trim();
-            if (stored == raw || stored == SuggestTitle(raw)) return true;
+            var suggested = SuggestTitle(raw);
+            if (stored == raw || stored == suggested || SuggestTitle(stored) == suggested) return true;
         }
 
         return false;
+    }
+
+    public static string ResolveTitle(string? nombre, string? nombrePublico)
+    {
+        var suggested = SuggestTitle(nombre);
+        if (string.IsNullOrWhiteSpace(nombrePublico)) return suggested;
+        if (IsDefaultTitle(nombrePublico, nombre, nombre)) return suggested;
+        return nombrePublico.Trim();
     }
 
     public static bool IsDefaultDescription(string? descripcionPublica, string? descripcion)
