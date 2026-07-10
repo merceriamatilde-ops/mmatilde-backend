@@ -1413,7 +1413,7 @@ namespace MMatilde.Api.Migrations
                         .HasColumnType("character varying(120)")
                         .HasColumnName("presentacion_nombre");
 
-                    b.Property<int>("ProductoId")
+                    b.Property<int?>("ProductoId")
                         .HasColumnType("integer")
                         .HasColumnName("producto_id");
 
@@ -1528,7 +1528,7 @@ namespace MMatilde.Api.Migrations
                     b.HasOne("MMatilde.Api.Models.Producto", "ProductoVinculado")
                         .WithMany()
                         .HasForeignKey("ProductoVinculadoId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("ProductoPrincipal");
@@ -1600,8 +1600,7 @@ namespace MMatilde.Api.Migrations
                     b.HasOne("MMatilde.Api.Models.Producto", "Producto")
                         .WithMany()
                         .HasForeignKey("ProductoId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("MMatilde.Api.Models.Venta", "Venta")
                         .WithMany("Lineas")

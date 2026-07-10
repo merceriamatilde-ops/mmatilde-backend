@@ -21,7 +21,7 @@ public class VentaLinea
 {
     public int Id { get; set; }
     public int VentaId { get; set; }
-    public int ProductoId { get; set; }
+    public int? ProductoId { get; set; }
     public int? VarianteId { get; set; }
     public string? VarianteLabel { get; set; }
     public int? PresentacionId { get; set; }

@@ -28,7 +28,7 @@ public record VentaUpdateDto(
 
 public record VentaLineaDto(
     int Id,
-    int ProductoId,
+    int? ProductoId,
     int? VarianteId,
     string? VarianteLabel,
     int? PresentacionId,

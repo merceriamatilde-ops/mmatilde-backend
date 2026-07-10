@@ -29,7 +29,14 @@ public class ProductosController : ControllerBase
         [FromQuery] int? categoriaId, 
         [FromQuery] int? subcategoriaId,
         [FromQuery] int? proveedorId,
-        [FromQuery] bool? activo, 
+        [FromQuery] int? tagId,
+        [FromQuery] bool? activo,
+        [FromQuery] bool? destacado,
+        [FromQuery] bool sinPrecio = false,
+        [FromQuery] bool sinImagen = false,
+        [FromQuery] bool sinSync = false,
+        [FromQuery] string? syncDesde = null,
+        [FromQuery] string? syncHasta = null,
         [FromQuery] int page = 1, 
         [FromQuery] int pageSize = 50)
     {
@@ -61,9 +68,47 @@ public class ProductosController : ControllerBase
         {
             query = query.Where(p => p.ProveedorId == proveedorId);
         }
+        if (tagId.HasValue)
+        {
+            query = query.Where(p => p.Tags.Any(t => t.TagId == tagId.Value));
+        }
         if (activo.HasValue)
         {
             query = query.Where(p => p.Activo == activo);
+        }
+        if (destacado.HasValue)
+        {
+            query = query.Where(p => p.Destacado == destacado.Value);
+        }
+        if (sinPrecio)
+        {
+            query = query.Where(p =>
+                p.PrecioMinorista == null &&
+                !p.Presentaciones.Any(pr => pr.Activo && pr.PrecioVenta != null) &&
+                (p.ModoPrecio != ModoPrecio.AUTOMATICO || p.PrecioMayorista == null));
+        }
+        if (sinImagen)
+        {
+            query = query.Where(p =>
+                (p.ImagenPublicaUrl == null || p.ImagenPublicaUrl == "") &&
+                !p.Imagenes.Any());
+        }
+        if (sinSync)
+        {
+            query = query.Where(p => p.UltimaSync == null);
+        }
+        else
+        {
+            if (!string.IsNullOrWhiteSpace(syncDesde) && DateOnly.TryParse(syncDesde, out var desde))
+            {
+                var (desdeUtc, _) = VentasService.RangoDiaArgentina(desde);
+                query = query.Where(p => p.UltimaSync != null && p.UltimaSync >= desdeUtc);
+            }
+            if (!string.IsNullOrWhiteSpace(syncHasta) && DateOnly.TryParse(syncHasta, out var hasta))
+            {
+                var (_, hastaUtc) = VentasService.RangoDiaArgentina(hasta);
+                query = query.Where(p => p.UltimaSync != null && p.UltimaSync <= hastaUtc);
+            }
         }
 
         var total = await query.CountAsync();
@@ -463,8 +508,26 @@ public class ProductosController : ControllerBase
         var p = await _db.Productos.FindAsync(id);
         if (p == null) return NotFound();
 
-        _db.Productos.Remove(p);
-        await _db.SaveChangesAsync();
-        return Ok();
+        try
+        {
+            await using var tx = await _db.Database.BeginTransactionAsync();
+
+            await _db.ProductoRelacionados
+                .Where(r => r.ProductoVinculadoId == id)
+                .ExecuteDeleteAsync();
+
+            _db.Productos.Remove(p);
+            await _db.SaveChangesAsync();
+            await tx.CommitAsync();
+            return Ok();
+        }
+        catch (DbUpdateException ex)
+        {
+            return Conflict(new
+            {
+                message = "No se pudo eliminar el producto porque tiene datos vinculados que no se pudieron liberar.",
+                detail = ex.InnerException?.Message ?? ex.Message
+            });
+        }
     }
 }

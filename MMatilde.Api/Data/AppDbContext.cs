@@ -398,7 +398,7 @@ public class AppDbContext : DbContext
             b.HasOne(e => e.ProductoVinculado)
              .WithMany()
              .HasForeignKey(e => e.ProductoVinculadoId)
-             .OnDelete(DeleteBehavior.Restrict); // Prevent circular cascade
+             .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<IaConsulta>(b =>
@@ -496,7 +496,7 @@ public class AppDbContext : DbContext
             b.HasIndex(e => e.VentaId);
             b.HasIndex(e => e.ProductoId);
             b.HasOne(e => e.Venta).WithMany(v => v.Lineas).HasForeignKey(e => e.VentaId).OnDelete(DeleteBehavior.Cascade);
-            b.HasOne(e => e.Producto).WithMany().HasForeignKey(e => e.ProductoId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne(e => e.Producto).WithMany().HasForeignKey(e => e.ProductoId).OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<MedioPago>(b =>

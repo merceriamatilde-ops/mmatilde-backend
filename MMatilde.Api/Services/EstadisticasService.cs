@@ -42,7 +42,7 @@ public class EstadisticasService
         var mediosMap = await _db.MediosPago.ToDictionaryAsync(m => m.Slug, m => m.Nombre);
         var categoriasMap = await _db.Categorias.ToDictionaryAsync(c => c.Id, c => c.Nombre);
         var productoCategorias = await _db.Productos
-            .Where(p => lineas.Select(l => l.ProductoId).Distinct().Contains(p.Id))
+            .Where(p => lineas.Where(l => l.ProductoId.HasValue).Select(l => l.ProductoId!.Value).Distinct().Contains(p.Id))
             .Select(p => new { p.Id, p.CategoriaId })
             .ToDictionaryAsync(p => p.Id, p => p.CategoriaId);
 
@@ -129,7 +129,8 @@ public class EstadisticasService
 
     private static List<EstadisticasTopProductoDto> BuildTopProductos(List<VentaLinea> lineas) =>
         lineas
-            .GroupBy(l => new { l.ProductoId, l.ProductoNombre })
+            .Where(l => l.ProductoId.HasValue)
+            .GroupBy(l => new { ProductoId = l.ProductoId!.Value, l.ProductoNombre })
             .Select(g => new EstadisticasTopProductoDto(
                 g.Key.ProductoId,
                 g.Key.ProductoNombre,
@@ -149,7 +150,7 @@ public class EstadisticasService
         return lineas
             .GroupBy(l =>
             {
-                if (!productoCategorias.TryGetValue(l.ProductoId, out var catId))
+                if (!l.ProductoId.HasValue || !productoCategorias.TryGetValue(l.ProductoId.Value, out var catId))
                     return (Id: (int?)null, Nombre: "Sin categoría");
                 var nombre = categoriasMap.GetValueOrDefault(catId, "Sin categoría");
                 return (Id: (int?)catId, Nombre: nombre);
