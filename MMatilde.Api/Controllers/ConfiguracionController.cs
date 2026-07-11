@@ -30,7 +30,7 @@ public class ConfiguracionController : ControllerBase
     }
 
     [HttpPut]
-    [Authorize]
+    [Authorize(Roles = "ADMIN")]
     public async Task<IActionResult> Update([FromBody] ConfiguracionUpdateRequest req)
     {
         var configs = await _db.ConfiguracionSitio.ToListAsync();

@@ -11,7 +11,7 @@ namespace MMatilde.Api.Controllers;
 
 [ApiController]
 [Route("api/precios")]
-[Authorize]
+[Authorize(Roles = "ADMIN")]
 public class PreciosController : ControllerBase
 {
     private readonly AppDbContext _db;

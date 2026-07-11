@@ -213,7 +213,7 @@ public class ProductosController : ControllerBase
     }
 
     [HttpPut("{id}/toggle-activo")]
-    [Authorize]
+    [Authorize(Roles = "ADMIN")]
     public async Task<IActionResult> ToggleActivo(int id, [FromBody] ToggleRequest req)
     {
         var prod = await _db.Productos.FindAsync(id);
@@ -227,7 +227,7 @@ public class ProductosController : ControllerBase
     }
 
     [HttpPut("{id}/toggle-destacado")]
-    [Authorize]
+    [Authorize(Roles = "ADMIN")]
     public async Task<IActionResult> ToggleDestacado(int id, [FromBody] ToggleRequest req)
     {
         var prod = await _db.Productos.FindAsync(id);
@@ -241,7 +241,7 @@ public class ProductosController : ControllerBase
     }
 
     [HttpPut("bulk-toggle")]
-    [Authorize]
+    [Authorize(Roles = "ADMIN")]
     public async Task<IActionResult> BulkToggle([FromBody] BulkToggleRequest req)
     {
         var prod = await _db.Productos.Where(p => req.Ids.Contains(p.Id)).ToListAsync();
@@ -257,6 +257,7 @@ public class ProductosController : ControllerBase
 
     /// <summary>Solo desarrollo: activa todo el catálogo para pruebas de IA / catálogo.</summary>
     [HttpPut("dev/activate-all")]
+    [Authorize(Roles = "ADMIN")]
     public async Task<IActionResult> ActivateAllDev([FromServices] IWebHostEnvironment env)
     {
         if (!env.IsDevelopment()) return NotFound();
@@ -316,7 +317,7 @@ public class ProductosController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult> Create([FromBody] ProductoCreateDto dto)
     {
         var prov = await _db.Proveedores.FirstOrDefaultAsync(p => p.Slug == "manual");
@@ -393,7 +394,7 @@ public class ProductosController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    [Authorize]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult> Update(int id, [FromBody] ProductoUpdateDto dto)
     {
         var p = await _db.Productos
@@ -506,7 +507,7 @@ public class ProductosController : ControllerBase
     }
 
     [HttpPost("{id}/sync")]
-    [Authorize]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult<SyncResponse>> SyncProducto(int id)
     {
         var prod = await _db.Productos.FindAsync(id);
@@ -520,7 +521,7 @@ public class ProductosController : ControllerBase
     }
 
     [HttpDelete("{id}")]
-    [Authorize]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult> Delete(int id)
     {
         var p = await _db.Productos.FindAsync(id);

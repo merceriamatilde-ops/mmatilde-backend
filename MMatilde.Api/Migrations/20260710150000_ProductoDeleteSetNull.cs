@@ -1,9 +1,13 @@
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using MMatilde.Api.Data;
 
 #nullable disable
 
 namespace MMatilde.Api.Migrations;
 
+[DbContext(typeof(AppDbContext))]
+[Migration("20260710150000_ProductoDeleteSetNull")]
 public partial class ProductoDeleteSetNull : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)

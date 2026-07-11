@@ -11,6 +11,8 @@ public class Venta
     public decimal Total { get; set; }
     public decimal GananciaNetaEstimada { get; set; }
     public string? Notas { get; set; }
+    public Guid? UsuarioId { get; set; }
+    public Usuario? Usuario { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public ICollection<VentaLinea> Lineas { get; set; } = new List<VentaLinea>();

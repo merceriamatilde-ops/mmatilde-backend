@@ -50,7 +50,9 @@ public record VentaListDto(
     decimal Total,
     decimal GananciaNetaEstimada,
     int CantidadLineas,
-    string? Notas
+    string? Notas,
+    Guid? UsuarioId,
+    string? UsuarioNombre
 );
 
 public record VentaDetailDto(
@@ -62,6 +64,8 @@ public record VentaDetailDto(
     decimal Total,
     decimal GananciaNetaEstimada,
     string? Notas,
+    Guid? UsuarioId,
+    string? UsuarioNombre,
     List<VentaLineaDto> Lineas
 );
 
@@ -92,6 +96,7 @@ public record ProductoVentaBusquedaDto(
     int Id,
     string Nombre,
     string? CodigoMakor,
+    bool Activo,
     decimal? PrecioVenta,
     string? UnidadVenta,
     decimal? GananciaNetaEstimada,
@@ -118,3 +123,7 @@ public record ProductoVentaPrecioDto(
     decimal? ManoObra,
     List<ProductoVentaPresentacionDto> Presentaciones
 );
+
+public record VentaCarritoDto(DateTime? UpdatedAt, object? Payload);
+
+public record VentaCarritoSaveDto(object Payload);

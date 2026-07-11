@@ -17,16 +17,16 @@ public static class SeedData
         var adminEmail = string.IsNullOrWhiteSpace(config["AdminEmail"]) ? "admin@mmatilde.com" : config["AdminEmail"];
         var adminPassword = string.IsNullOrWhiteSpace(config["AdminPassword"]) ? "Admin123!" : config["AdminPassword"];
 
-        var admin = await db.Usuarios.FirstOrDefaultAsync(u => u.Email == adminEmail);
-        if (admin == null)
+        await EnsureUsuarioAsync(db, adminEmail, "Administrador", adminPassword, RolUsuario.ADMIN);
+
+        var staffEmail = config["StaffEmail"]?.Trim();
+        if (!string.IsNullOrWhiteSpace(staffEmail))
         {
-            db.Usuarios.Add(new Usuario
-            {
-                Email = adminEmail,
-                Nombre = "Administrador",
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword(adminPassword, 12),
-                Rol = RolUsuario.ADMIN
-            });
+            var staffNombre = string.IsNullOrWhiteSpace(config["StaffNombre"]) ? "Staff" : config["StaffNombre"]!.Trim();
+            var staffPassword = string.IsNullOrWhiteSpace(config["StaffPassword"]) ? "Staff123!" : config["StaffPassword"]!;
+            var staffRol = ParseRol(config["StaffRol"], RolUsuario.VIEWER);
+            await EnsureUsuarioAsync(db, staffEmail, staffNombre, staffPassword, staffRol);
+            await SyncStaffUsuarioAsync(db, staffEmail, staffNombre, staffRol);
         }
 
         var makor = await db.Proveedores.FirstOrDefaultAsync(p => p.Slug == "makor");
@@ -113,5 +113,48 @@ public static class SeedData
         }
 
         await db.SaveChangesAsync();
+    }
+
+    private static async Task EnsureUsuarioAsync(
+        AppDbContext db,
+        string email,
+        string nombre,
+        string password,
+        RolUsuario rol)
+    {
+        var normalized = email.Trim().ToLowerInvariant();
+        var exists = await db.Usuarios.AnyAsync(u => u.Email.ToLower() == normalized);
+        if (exists) return;
+
+        db.Usuarios.Add(new Usuario
+        {
+            Email = normalized,
+            Nombre = nombre.Trim(),
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(password, 12),
+            Rol = rol,
+            Activo = true,
+        });
+    }
+
+    private static async Task SyncStaffUsuarioAsync(
+        AppDbContext db,
+        string email,
+        string nombre,
+        RolUsuario rol)
+    {
+        var normalized = email.Trim().ToLowerInvariant();
+        var user = await db.Usuarios.FirstOrDefaultAsync(u => u.Email.ToLower() == normalized);
+        if (user == null) return;
+
+        user.Nombre = nombre.Trim();
+        user.Rol = rol;
+        user.Activo = true;
+        await db.SaveChangesAsync();
+    }
+
+    private static RolUsuario ParseRol(string? raw, RolUsuario fallback)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return fallback;
+        return Enum.TryParse(raw.Trim(), true, out RolUsuario rol) ? rol : fallback;
     }
 }

@@ -9,7 +9,7 @@ namespace MMatilde.Api.Controllers;
 
 [Route("api/sync")]
 [ApiController]
-[Authorize]
+[Authorize(Roles = "ADMIN")]
 public class SyncController : ControllerBase
 {
     private readonly AppDbContext _db;

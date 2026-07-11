@@ -7,7 +7,7 @@ namespace MMatilde.Api.Controllers;
 
 [Route("api/upload")]
 [ApiController]
-[Authorize]
+[Authorize(Roles = "ADMIN")]
 public class UploadController : ControllerBase
 {
     private readonly IConfiguration _config;

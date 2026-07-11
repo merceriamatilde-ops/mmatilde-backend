@@ -1290,6 +1290,12 @@ namespace MMatilde.Api.Migrations
                         .HasColumnType("text")
                         .HasColumnName("rol");
 
+                    b.Property<bool>("Activo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("activo");
+
                     b.Property<DateTime>("UpdatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -1302,6 +1308,28 @@ namespace MMatilde.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("usuarios", (string)null);
+                });
+
+            modelBuilder.Entity("MMatilde.Api.Models.VentaCarritoBorrador", b =>
+                {
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("payload_json");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.HasKey("UsuarioId");
+
+                    b.ToTable("venta_carritos_borrador", (string)null);
                 });
 
             modelBuilder.Entity("MMatilde.Api.Models.Venta", b =>
@@ -1347,11 +1375,17 @@ namespace MMatilde.Api.Migrations
                         .HasColumnType("character varying(40)")
                         .HasColumnName("turno");
 
+                    b.Property<Guid?>("UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Fecha");
 
                     b.HasIndex("Turno");
+
+                    b.HasIndex("UsuarioId");
 
                     b.ToTable("ventas", (string)null);
                 });
@@ -1593,6 +1627,27 @@ namespace MMatilde.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("Proveedor");
+                });
+
+            modelBuilder.Entity("MMatilde.Api.Models.VentaCarritoBorrador", b =>
+                {
+                    b.HasOne("MMatilde.Api.Models.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Usuario");
+                });
+
+            modelBuilder.Entity("MMatilde.Api.Models.Venta", b =>
+                {
+                    b.HasOne("MMatilde.Api.Models.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Usuario");
                 });
 
             modelBuilder.Entity("MMatilde.Api.Models.VentaLinea", b =>

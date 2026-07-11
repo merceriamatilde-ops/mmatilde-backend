@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using MMatilde.Api.Data;
 using MMatilde.Api.DTOs;
 using MMatilde.Api.Models;
+using System.Text.Json;
 
 namespace MMatilde.Api.Services;
 
@@ -59,11 +60,12 @@ public class VentasService
             .Include(p => p.Presentaciones)
             .Include(p => p.Variantes)
                 .ThenInclude(v => v.Color)
-            .Where(p => p.Activo && (
+            .Where(p =>
                 EF.Functions.ILike(p.Nombre, patron) ||
                 (p.NombrePublico != null && EF.Functions.ILike(p.NombrePublico, patron)) ||
-                EF.Functions.ILike(p.CodigoMakor, patron)))
-            .OrderBy(p => p.Nombre)
+                EF.Functions.ILike(p.CodigoMakor, patron))
+            .OrderByDescending(p => p.Activo)
+            .ThenBy(p => p.Nombre)
             .Take(Math.Clamp(limit, 5, 30))
             .ToListAsync();
 
@@ -86,6 +88,7 @@ public class VentasService
                 p.Id,
                 p.NombrePublico ?? p.Nombre,
                 p.CodigoMakor,
+                p.Activo,
                 mapped.Precio,
                 mapped.UnidadVenta,
                 mapped.GananciaNetaEstimada,
@@ -105,7 +108,7 @@ public class VentasService
     public async Task<Dictionary<string, string>> GetMediosNombreMapAsync() =>
         await _db.MediosPago.ToDictionaryAsync(m => m.Slug, m => m.Nombre);
 
-    public async Task<Venta> CrearVentaAsync(VentaCreateDto dto)
+    public async Task<Venta> CrearVentaAsync(VentaCreateDto dto, Guid? usuarioId = null)
     {
         if (dto.Lineas.Count == 0)
             throw new InvalidOperationException("La venta debe tener al menos una línea.");
@@ -119,6 +122,7 @@ public class VentasService
             Turno = turnoSlug,
             MedioPagoSlug = medioSlug,
             Notas = string.IsNullOrWhiteSpace(dto.Notas) ? null : dto.Notas.Trim(),
+            UsuarioId = usuarioId,
         };
 
         foreach (var linea in dto.Lineas)
@@ -169,7 +173,9 @@ public class VentasService
         venta.Total,
         venta.GananciaNetaEstimada,
         venta.Lineas.Count,
-        venta.Notas
+        venta.Notas,
+        venta.UsuarioId,
+        venta.Usuario?.Nombre
     );
 
     public VentaDetailDto MapDetail(Venta venta, IReadOnlyDictionary<string, string> mediosMap) => new(
@@ -181,6 +187,8 @@ public class VentasService
         venta.Total,
         venta.GananciaNetaEstimada,
         venta.Notas,
+        venta.UsuarioId,
+        venta.Usuario?.Nombre,
         venta.Lineas
             .OrderBy(l => l.Id)
             .Select(l => new VentaLineaDto(
@@ -409,5 +417,61 @@ public class VentasService
             throw new InvalidOperationException("Turno inválido o inactivo.");
 
         return turno.Slug;
+    }
+
+    public async Task<VentaCarritoDto?> GetCarritoAsync(Guid usuarioId)
+    {
+        var carrito = await _db.VentaCarritosBorrador
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.UsuarioId == usuarioId);
+
+        if (carrito == null) return null;
+
+        object? payload = null;
+        try
+        {
+            payload = JsonSerializer.Deserialize<object>(carrito.PayloadJson);
+        }
+        catch
+        {
+            payload = null;
+        }
+
+        return new VentaCarritoDto(carrito.UpdatedAt, payload);
+    }
+
+    public async Task SaveCarritoAsync(Guid usuarioId, object payload)
+    {
+        var json = JsonSerializer.Serialize(payload);
+        var carrito = await _db.VentaCarritosBorrador
+            .FirstOrDefaultAsync(c => c.UsuarioId == usuarioId);
+
+        if (carrito == null)
+        {
+            carrito = new VentaCarritoBorrador
+            {
+                UsuarioId = usuarioId,
+                PayloadJson = json,
+                UpdatedAt = DateTime.UtcNow,
+            };
+            _db.VentaCarritosBorrador.Add(carrito);
+        }
+        else
+        {
+            carrito.PayloadJson = json;
+            carrito.UpdatedAt = DateTime.UtcNow;
+        }
+
+        await _db.SaveChangesAsync();
+    }
+
+    public async Task ClearCarritoAsync(Guid usuarioId)
+    {
+        var carrito = await _db.VentaCarritosBorrador
+            .FirstOrDefaultAsync(c => c.UsuarioId == usuarioId);
+        if (carrito == null) return;
+
+        _db.VentaCarritosBorrador.Remove(carrito);
+        await _db.SaveChangesAsync();
     }
 }

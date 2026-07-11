@@ -24,6 +24,7 @@ public class TurnosVentaController : ControllerBase
     }
 
     [HttpGet]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult<List<TurnoVentaDto>>> GetAll()
     {
         await _turnos.EnsureSeedAsync();
@@ -38,6 +39,7 @@ public class TurnosVentaController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult<TurnoVentaDto>> Create([FromBody] TurnoVentaCreateDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto.Nombre))
@@ -88,6 +90,7 @@ public class TurnosVentaController : ControllerBase
     }
 
     [HttpPut("{id}")]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult<TurnoVentaDto>> Update(int id, [FromBody] TurnoVentaUpdateDto dto)
     {
         var turno = await _db.TurnosVenta.FindAsync(id);
@@ -145,6 +148,7 @@ public class TurnosVentaController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Roles = "ADMIN")]
     public async Task<IActionResult> Delete(int id)
     {
         if (await _db.TurnosVenta.CountAsync() <= 2)

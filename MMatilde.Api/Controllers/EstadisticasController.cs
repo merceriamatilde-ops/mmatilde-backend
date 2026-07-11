@@ -8,7 +8,7 @@ namespace MMatilde.Api.Controllers;
 
 [ApiController]
 [Route("api/estadisticas")]
-[Authorize]
+[Authorize(Roles = "ADMIN")]
 public class EstadisticasController : ControllerBase
 {
     private readonly EstadisticasService _stats;

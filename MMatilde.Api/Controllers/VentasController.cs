@@ -5,6 +5,7 @@ using MMatilde.Api.Data;
 using MMatilde.Api.DTOs;
 using MMatilde.Api.Models;
 using MMatilde.Api.Services;
+using System.Security.Claims;
 
 namespace MMatilde.Api.Controllers;
 
@@ -26,6 +27,36 @@ public class VentasController : ControllerBase
     public async Task<ActionResult<List<ProductoVentaBusquedaDto>>> BuscarProductos([FromQuery] string q, [FromQuery] int limit = 8)
     {
         return await _ventas.BuscarProductosAsync(q, limit);
+    }
+
+    [HttpGet("carrito")]
+    public async Task<ActionResult<VentaCarritoDto>> GetCarrito()
+    {
+        var userId = GetUserId();
+        if (userId == null) return Unauthorized();
+
+        var carrito = await _ventas.GetCarritoAsync(userId.Value);
+        return carrito ?? new VentaCarritoDto(null, null);
+    }
+
+    [HttpPut("carrito")]
+    public async Task<IActionResult> SaveCarrito([FromBody] VentaCarritoSaveDto dto)
+    {
+        var userId = GetUserId();
+        if (userId == null) return Unauthorized();
+
+        await _ventas.SaveCarritoAsync(userId.Value, dto.Payload);
+        return NoContent();
+    }
+
+    [HttpDelete("carrito")]
+    public async Task<IActionResult> ClearCarrito()
+    {
+        var userId = GetUserId();
+        if (userId == null) return Unauthorized();
+
+        await _ventas.ClearCarritoAsync(userId.Value);
+        return NoContent();
     }
 
     [HttpGet("producto/{id}/precio")]
@@ -60,6 +91,7 @@ public class VentasController : ControllerBase
     {
         var query = _db.Ventas
             .Include(v => v.Lineas)
+            .Include(v => v.Usuario)
             .AsQueryable();
 
         if (desde.HasValue)
@@ -138,6 +170,7 @@ public class VentasController : ControllerBase
     {
         var venta = await _db.Ventas
             .Include(v => v.Lineas)
+            .Include(v => v.Usuario)
             .FirstOrDefaultAsync(v => v.Id == id);
         if (venta == null) return NotFound();
         var mediosMap = await _ventas.GetMediosNombreMapAsync();
@@ -149,7 +182,9 @@ public class VentasController : ControllerBase
     {
         try
         {
-            var venta = await _ventas.CrearVentaAsync(dto);
+            var userId = GetUserId();
+            var venta = await _ventas.CrearVentaAsync(dto, userId);
+            await _db.Entry(venta).Reference(v => v.Usuario).LoadAsync();
             var mediosMap = await _ventas.GetMediosNombreMapAsync();
             return CreatedAtAction(nameof(Get), new { id = venta.Id }, _ventas.MapDetail(venta, mediosMap));
         }
@@ -176,6 +211,7 @@ public class VentasController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Roles = "ADMIN")]
     public async Task<IActionResult> Delete(int id)
     {
         var venta = await _db.Ventas.FindAsync(id);
@@ -183,6 +219,12 @@ public class VentasController : ControllerBase
         _db.Ventas.Remove(venta);
         await _db.SaveChangesAsync();
         return NoContent();
+    }
+
+    private Guid? GetUserId()
+    {
+        var raw = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return Guid.TryParse(raw, out var id) ? id : null;
     }
 }
 

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MMatilde.Api.Data;
@@ -92,6 +93,7 @@ public class CategoriasController : ControllerBase
     }
 
     [HttpGet("admin")]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult<List<CategoriaAdminDto>>> GetAdmin()
     {
         var result = await _db.Categorias
@@ -117,6 +119,7 @@ public class CategoriasController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult> CreateCategoria([FromBody] CategoriaCreateDto dto)
     {
         var slug = MMatilde.Api.Helpers.SlugHelper.Slugify(dto.Nombre);
@@ -135,6 +138,7 @@ public class CategoriasController : ControllerBase
     }
 
     [HttpPut("{id}")]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult> UpdateCategoria(int id, [FromBody] CategoriaUpdateDto dto)
     {
         var cat = await _db.Categorias.FindAsync(id);
@@ -153,6 +157,7 @@ public class CategoriasController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult> DeleteCategoria(int id)
     {
         var cat = await _db.Categorias.FindAsync(id);
@@ -173,6 +178,7 @@ public class CategoriasController : ControllerBase
     }
 
     [HttpPost("subcategorias")]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult> CreateSubcategoria([FromBody] SubcategoriaCreateDto dto)
     {
         var cat = await _db.Categorias.FindAsync(dto.CategoriaId);
@@ -195,6 +201,7 @@ public class CategoriasController : ControllerBase
     }
 
     [HttpPut("subcategorias/{id}")]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult> UpdateSubcategoria(int id, [FromBody] SubcategoriaUpdateDto dto)
     {
         var sub = await _db.Subcategorias.FindAsync(id);
@@ -211,6 +218,7 @@ public class CategoriasController : ControllerBase
     }
 
     [HttpDelete("subcategorias/{id}")]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult> DeleteSubcategoria(int id)
     {
         var sub = await _db.Subcategorias.FindAsync(id);

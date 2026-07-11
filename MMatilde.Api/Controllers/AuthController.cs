@@ -25,8 +25,9 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<ActionResult<LoginResponse>> Login([FromBody] LoginRequest req)
     {
-        var user = await _db.Usuarios.FirstOrDefaultAsync(u => u.Email == req.Email);
-        if (user == null || !BCrypt.Net.BCrypt.Verify(req.Password, user.PasswordHash))
+        var email = req.Email.Trim().ToLowerInvariant();
+        var user = await _db.Usuarios.FirstOrDefaultAsync(u => u.Email.ToLower() == email);
+        if (user == null || !user.Activo || !BCrypt.Net.BCrypt.Verify(req.Password, user.PasswordHash))
         {
             return Unauthorized(new { message = "Credenciales inválidas" });
         }
@@ -52,6 +53,6 @@ public class AuthController : ControllerBase
 
         var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
 
-        return new LoginResponse(tokenString, user.Email, user.Nombre, user.Rol.ToString());
+        return new LoginResponse(tokenString, user.Id, user.Email, user.Nombre, user.Rol.ToString());
     }
 }

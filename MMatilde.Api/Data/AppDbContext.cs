@@ -27,6 +27,7 @@ public class AppDbContext : DbContext
     public DbSet<IaReglaAprendida> IaReglasAprendidas { get; set; }
     public DbSet<IaEjemplo> IaEjemplos { get; set; }
     public DbSet<Venta> Ventas { get; set; }
+    public DbSet<VentaCarritoBorrador> VentaCarritosBorrador { get; set; }
     public DbSet<VentaLinea> VentaLineas { get; set; }
     public DbSet<MedioPago> MediosPago { get; set; }
     public DbSet<TurnoVentaConfig> TurnosVenta { get; set; }
@@ -51,6 +52,7 @@ public class AppDbContext : DbContext
             b.Property(e => e.Nombre).HasColumnName("nombre").HasMaxLength(255).IsRequired();
             b.Property(e => e.PasswordHash).HasColumnName("password_hash").HasMaxLength(255).IsRequired();
             b.Property(e => e.Rol).HasColumnName("rol").HasConversion<string>();
+            b.Property(e => e.Activo).HasColumnName("activo").HasDefaultValue(true);
             b.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             b.Property(e => e.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
         });
@@ -467,9 +469,15 @@ public class AppDbContext : DbContext
             b.Property(e => e.Total).HasColumnName("total").HasColumnType("numeric(18,2)");
             b.Property(e => e.GananciaNetaEstimada).HasColumnName("ganancia_neta_estimada").HasColumnType("numeric(18,2)");
             b.Property(e => e.Notas).HasColumnName("notas");
+            b.Property(e => e.UsuarioId).HasColumnName("usuario_id");
             b.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             b.HasIndex(e => e.Fecha);
             b.HasIndex(e => e.Turno);
+            b.HasIndex(e => e.UsuarioId);
+            b.HasOne(e => e.Usuario)
+                .WithMany()
+                .HasForeignKey(e => e.UsuarioId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<VentaLinea>(b =>
@@ -497,6 +505,19 @@ public class AppDbContext : DbContext
             b.HasIndex(e => e.ProductoId);
             b.HasOne(e => e.Venta).WithMany(v => v.Lineas).HasForeignKey(e => e.VentaId).OnDelete(DeleteBehavior.Cascade);
             b.HasOne(e => e.Producto).WithMany().HasForeignKey(e => e.ProductoId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<VentaCarritoBorrador>(b =>
+        {
+            b.ToTable("venta_carritos_borrador");
+            b.HasKey(e => e.UsuarioId);
+            b.Property(e => e.UsuarioId).HasColumnName("usuario_id");
+            b.Property(e => e.PayloadJson).HasColumnName("payload_json").HasColumnType("jsonb").IsRequired();
+            b.Property(e => e.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
+            b.HasOne(e => e.Usuario)
+                .WithMany()
+                .HasForeignKey(e => e.UsuarioId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<MedioPago>(b =>

@@ -29,7 +29,7 @@ public class TagsController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult<TagDto>> Create([FromBody] TagCreateDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto.Nombre))
@@ -57,7 +57,7 @@ public class TagsController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    [Authorize]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult<TagDto>> Update(int id, [FromBody] TagUpdateDto dto)
     {
         var tag = await _db.Tags.FindAsync(id);
@@ -82,7 +82,7 @@ public class TagsController : ControllerBase
     }
 
     [HttpDelete("{id}")]
-    [Authorize]
+    [Authorize(Roles = "ADMIN")]
     public async Task<IActionResult> Delete(int id)
     {
         var tag = await _db.Tags.FindAsync(id);

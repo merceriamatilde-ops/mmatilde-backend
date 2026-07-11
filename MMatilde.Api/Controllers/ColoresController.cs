@@ -24,7 +24,7 @@ public class ColoresController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult<Color>> Create([FromBody] ColorDto dto)
     {
         if (await _db.Colores.AnyAsync(c => c.Nombre.ToLower() == dto.Nombre.ToLower()))
@@ -46,7 +46,7 @@ public class ColoresController : ControllerBase
     }
 
     [HttpDelete("{id}")]
-    [Authorize]
+    [Authorize(Roles = "ADMIN")]
     public async Task<IActionResult> Delete(int id)
     {
         var color = await _db.Colores.FindAsync(id);
@@ -65,7 +65,7 @@ public class ColoresController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    [Authorize]
+    [Authorize(Roles = "ADMIN")]
     public async Task<IActionResult> Update(int id, [FromBody] ColorDto dto)
     {
         var color = await _db.Colores.FindAsync(id);

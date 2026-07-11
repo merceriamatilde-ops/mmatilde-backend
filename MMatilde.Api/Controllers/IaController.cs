@@ -51,7 +51,7 @@ public class IaController : ControllerBase
     }
 
     [HttpGet("consultas")]
-    [Authorize]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult<List<IaConsultaDto>>> ListarConsultas(
         [FromQuery] string? evaluacion = null,
         [FromQuery] bool pendientes = false,
@@ -74,7 +74,7 @@ public class IaController : ControllerBase
     }
 
     [HttpGet("consultas/{id:int}")]
-    [Authorize]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult<IaConsultaDto>> ObtenerConsulta(int id)
     {
         var consulta = await _db.IaConsultas.FindAsync(id);
@@ -83,7 +83,7 @@ public class IaController : ControllerBase
     }
 
     [HttpPut("consultas/{id:int}/feedback")]
-    [Authorize]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult<IaConsultaDto>> EnviarFeedback(int id, [FromBody] IaFeedbackDto dto)
     {
         var consulta = await _db.IaConsultas.FindAsync(id);
@@ -170,7 +170,7 @@ public class IaController : ControllerBase
     }
 
     [HttpGet("reglas")]
-    [Authorize]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult<List<IaReglaDto>>> ListarReglas()
     {
         var reglas = await _db.IaReglasAprendidas
@@ -181,7 +181,7 @@ public class IaController : ControllerBase
     }
 
     [HttpPost("reglas")]
-    [Authorize]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult<IaReglaDto>> CrearRegla([FromBody] CrearIaReglaDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto.Titulo) || string.IsNullOrWhiteSpace(dto.Regla))
@@ -202,7 +202,7 @@ public class IaController : ControllerBase
     }
 
     [HttpPut("reglas/{id:int}/toggle")]
-    [Authorize]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult<IaReglaDto>> ToggleRegla(int id)
     {
         var regla = await _db.IaReglasAprendidas.FindAsync(id);
@@ -215,7 +215,7 @@ public class IaController : ControllerBase
     }
 
     [HttpDelete("reglas/{id:int}")]
-    [Authorize]
+    [Authorize(Roles = "ADMIN")]
     public async Task<IActionResult> EliminarRegla(int id)
     {
         var regla = await _db.IaReglasAprendidas.FindAsync(id);
@@ -228,7 +228,7 @@ public class IaController : ControllerBase
     }
 
     [HttpGet("ejemplos")]
-    [Authorize]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult<List<IaEjemploDto>>> ListarEjemplos()
     {
         var items = await _db.IaEjemplos
@@ -239,7 +239,7 @@ public class IaController : ControllerBase
     }
 
     [HttpPost("ejemplos")]
-    [Authorize]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult<IaEjemploDto>> CrearEjemplo([FromBody] CrearIaEjemploDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto.Titulo) || string.IsNullOrWhiteSpace(dto.Descripcion))
@@ -264,7 +264,7 @@ public class IaController : ControllerBase
     }
 
     [HttpPut("ejemplos/{id:int}/toggle")]
-    [Authorize]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult<IaEjemploDto>> ToggleEjemplo(int id)
     {
         var ejemplo = await _db.IaEjemplos.FindAsync(id);
@@ -277,7 +277,7 @@ public class IaController : ControllerBase
     }
 
     [HttpDelete("ejemplos/{id:int}")]
-    [Authorize]
+    [Authorize(Roles = "ADMIN")]
     public async Task<IActionResult> EliminarEjemplo(int id)
     {
         var ejemplo = await _db.IaEjemplos.FindAsync(id);

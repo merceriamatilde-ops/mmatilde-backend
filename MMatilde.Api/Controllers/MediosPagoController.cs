@@ -18,6 +18,7 @@ public class MediosPagoController : ControllerBase
     public MediosPagoController(AppDbContext db) => _db = db;
 
     [HttpGet]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult<List<MedioPagoDto>>> GetAll()
     {
         return await MapQuery(_db.MediosPago.OrderBy(m => m.Orden).ThenBy(m => m.Nombre));
@@ -32,6 +33,7 @@ public class MediosPagoController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult<MedioPagoDto>> Create([FromBody] MedioPagoCreateDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto.Nombre))
@@ -62,6 +64,7 @@ public class MediosPagoController : ControllerBase
     }
 
     [HttpPut("{id}")]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult<MedioPagoDto>> Update(int id, [FromBody] MedioPagoUpdateDto dto)
     {
         var medio = await _db.MediosPago.FindAsync(id);
@@ -104,6 +107,7 @@ public class MediosPagoController : ControllerBase
     }
 
     [HttpPut("{id}/default")]
+    [Authorize(Roles = "ADMIN")]
     public async Task<IActionResult> SetDefault(int id)
     {
         var medio = await _db.MediosPago.FindAsync(id);
@@ -120,6 +124,7 @@ public class MediosPagoController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Roles = "ADMIN")]
     public async Task<IActionResult> Delete(int id)
     {
         var medio = await _db.MediosPago.FindAsync(id);
