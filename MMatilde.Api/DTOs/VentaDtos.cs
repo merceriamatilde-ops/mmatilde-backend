@@ -7,7 +7,9 @@ public record VentaLineaCreateDto(
     int? VarianteId,
     int? PresentacionId,
     decimal Cantidad,
-    decimal? PrecioUnitario
+    decimal? PrecioUnitario,
+    decimal? DescuentoPorcentaje = null,
+    decimal? DescuentoMonto = null
 );
 
 public record VentaCreateDto(
@@ -15,7 +17,9 @@ public record VentaCreateDto(
     string Turno,
     string MedioPagoSlug,
     string? Notas,
-    List<VentaLineaCreateDto> Lineas
+    List<VentaLineaCreateDto> Lineas,
+    decimal? DescuentoGlobalPorcentaje = null,
+    decimal? DescuentoGlobalMonto = null
 );
 
 public record VentaUpdateDto(
@@ -23,7 +27,9 @@ public record VentaUpdateDto(
     string Turno,
     string MedioPagoSlug,
     string? Notas,
-    List<VentaLineaCreateDto> Lineas
+    List<VentaLineaCreateDto> Lineas,
+    decimal? DescuentoGlobalPorcentaje = null,
+    decimal? DescuentoGlobalMonto = null
 );
 
 public record VentaLineaDto(
@@ -36,6 +42,10 @@ public record VentaLineaDto(
     string ProductoNombre,
     decimal Cantidad,
     decimal PrecioUnitarioVenta,
+    decimal SubtotalBruto,
+    decimal DescuentoPorcentaje,
+    decimal DescuentoMonto,
+    decimal DescuentoGlobalAsignado,
     decimal Subtotal,
     string ModoOrigenEconomico,
     decimal GananciaNetaEstimada
@@ -47,6 +57,8 @@ public record VentaListDto(
     string Turno,
     string MedioPagoSlug,
     string MedioPagoNombre,
+    decimal SubtotalBruto,
+    decimal DescuentoGlobalMonto,
     decimal Total,
     decimal GananciaNetaEstimada,
     int CantidadLineas,
@@ -61,6 +73,9 @@ public record VentaDetailDto(
     string Turno,
     string MedioPagoSlug,
     string MedioPagoNombre,
+    decimal SubtotalBruto,
+    decimal DescuentoGlobalPorcentaje,
+    decimal DescuentoGlobalMonto,
     decimal Total,
     decimal GananciaNetaEstimada,
     string? Notas,

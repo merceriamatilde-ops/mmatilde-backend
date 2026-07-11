@@ -138,8 +138,7 @@ public class VentasService
         foreach (var linea in dto.Lineas)
             venta.Lineas.Add(await BuildLineaAsync(linea));
 
-        venta.Total = venta.Lineas.Sum(l => l.Cantidad * l.PrecioUnitarioVenta);
-        venta.GananciaNetaEstimada = venta.Lineas.Sum(l => l.GananciaNetaEstimada);
+        ApplyDescuentos(venta, dto.Lineas, dto.DescuentoGlobalPorcentaje, dto.DescuentoGlobalMonto);
 
         _db.Ventas.Add(venta);
         await _db.SaveChangesAsync();
@@ -167,8 +166,7 @@ public class VentasService
         foreach (var linea in dto.Lineas)
             venta.Lineas.Add(await BuildLineaAsync(linea));
 
-        venta.Total = venta.Lineas.Sum(l => l.Cantidad * l.PrecioUnitarioVenta);
-        venta.GananciaNetaEstimada = venta.Lineas.Sum(l => l.GananciaNetaEstimada);
+        ApplyDescuentos(venta, dto.Lineas, dto.DescuentoGlobalPorcentaje, dto.DescuentoGlobalMonto);
 
         await _db.SaveChangesAsync();
         return venta;
@@ -180,6 +178,8 @@ public class VentasService
         venta.Turno,
         venta.MedioPagoSlug,
         mediosMap.GetValueOrDefault(venta.MedioPagoSlug, venta.MedioPagoSlug),
+        venta.SubtotalBruto,
+        venta.DescuentoGlobalMonto,
         venta.Total,
         venta.GananciaNetaEstimada,
         venta.Lineas.Count,
@@ -194,6 +194,9 @@ public class VentasService
         venta.Turno,
         venta.MedioPagoSlug,
         mediosMap.GetValueOrDefault(venta.MedioPagoSlug, venta.MedioPagoSlug),
+        venta.SubtotalBruto,
+        venta.DescuentoGlobalPorcentaje,
+        venta.DescuentoGlobalMonto,
         venta.Total,
         venta.GananciaNetaEstimada,
         venta.Notas,
@@ -211,12 +214,55 @@ public class VentasService
                 l.ProductoNombre,
                 l.Cantidad,
                 l.PrecioUnitarioVenta,
-                Math.Round(l.Cantidad * l.PrecioUnitarioVenta, 2, MidpointRounding.AwayFromZero),
+                l.SubtotalBruto,
+                l.DescuentoPorcentaje,
+                l.DescuentoMonto,
+                l.DescuentoGlobalAsignado,
+                l.Subtotal,
                 l.ModoOrigenEconomico.ToString(),
                 l.GananciaNetaEstimada
             ))
             .ToList()
     );
+
+    private static void ApplyDescuentos(
+        Venta venta,
+        IReadOnlyList<VentaLineaCreateDto> inputs,
+        decimal? descuentoGlobalPorcentaje,
+        decimal? descuentoGlobalMonto)
+    {
+        var lineas = venta.Lineas.ToList();
+        var descInputs = lineas.Select((l, i) => new VentaLineaDescuentoInput(
+            l.Cantidad,
+            l.PrecioUnitarioVenta,
+            l.GananciaNetaEstimada,
+            inputs[i].DescuentoPorcentaje ?? 0,
+            inputs[i].DescuentoMonto ?? 0
+        )).ToList();
+
+        var calc = VentaDescuentoService.Calcular(
+            descInputs,
+            descuentoGlobalPorcentaje ?? 0,
+            descuentoGlobalMonto);
+
+        for (var i = 0; i < lineas.Count; i++)
+        {
+            var line = lineas[i];
+            var r = calc.Lineas[i];
+            line.SubtotalBruto = r.SubtotalBruto;
+            line.DescuentoPorcentaje = inputs[i].DescuentoPorcentaje ?? 0;
+            line.DescuentoMonto = r.DescuentoLineaMonto;
+            line.DescuentoGlobalAsignado = r.DescuentoGlobalAsignado;
+            line.Subtotal = r.SubtotalFinal;
+            line.GananciaNetaEstimada = r.GananciaNetaEstimada;
+        }
+
+        venta.SubtotalBruto = calc.SubtotalBruto;
+        venta.DescuentoGlobalPorcentaje = descuentoGlobalPorcentaje ?? 0;
+        venta.DescuentoGlobalMonto = calc.DescuentoGlobalMonto;
+        venta.Total = calc.Total;
+        venta.GananciaNetaEstimada = calc.GananciaNetaEstimada;
+    }
 
     private async Task<Producto?> LoadProducto(int id)
     {

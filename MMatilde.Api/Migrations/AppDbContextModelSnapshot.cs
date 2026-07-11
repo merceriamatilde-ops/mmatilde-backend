@@ -1352,6 +1352,14 @@ namespace MMatilde.Api.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
 
+                    b.Property<decimal>("DescuentoGlobalMonto")
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("descuento_global_monto");
+
+                    b.Property<decimal>("DescuentoGlobalPorcentaje")
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("descuento_global_porcentaje");
+
                     b.Property<DateTime>("Fecha")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("fecha");
@@ -1369,6 +1377,10 @@ namespace MMatilde.Api.Migrations
                     b.Property<string>("Notas")
                         .HasColumnType("text")
                         .HasColumnName("notas");
+
+                    b.Property<decimal>("SubtotalBruto")
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("subtotal_bruto");
 
                     b.Property<decimal>("Total")
                         .HasColumnType("numeric(18,2)")
@@ -1431,6 +1443,18 @@ namespace MMatilde.Api.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
 
+                    b.Property<decimal>("DescuentoGlobalAsignado")
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("descuento_global_asignado");
+
+                    b.Property<decimal>("DescuentoMonto")
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("descuento_monto");
+
+                    b.Property<decimal>("DescuentoPorcentaje")
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("descuento_porcentaje");
+
                     b.Property<decimal>("GananciaNetaEstimada")
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("ganancia_neta_estimada");
@@ -1447,6 +1471,14 @@ namespace MMatilde.Api.Migrations
                     b.Property<decimal>("PrecioUnitarioVenta")
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("precio_unitario_venta");
+
+                    b.Property<decimal>("Subtotal")
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("subtotal");
+
+                    b.Property<decimal>("SubtotalBruto")
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("subtotal_bruto");
 
                     b.Property<int?>("PresentacionId")
                         .HasColumnType("integer")

@@ -8,6 +8,9 @@ public class Venta
     public string Turno { get; set; } = "MANANA";
     /// <summary>Slug del medio de pago (tabla medios_pago).</summary>
     public string MedioPagoSlug { get; set; } = string.Empty;
+    public decimal SubtotalBruto { get; set; }
+    public decimal DescuentoGlobalPorcentaje { get; set; }
+    public decimal DescuentoGlobalMonto { get; set; }
     public decimal Total { get; set; }
     public decimal GananciaNetaEstimada { get; set; }
     public string? Notas { get; set; }
@@ -33,6 +36,11 @@ public class VentaLinea
     public string ProductoNombre { get; set; } = string.Empty;
     public decimal Cantidad { get; set; } = 1;
     public decimal PrecioUnitarioVenta { get; set; }
+    public decimal SubtotalBruto { get; set; }
+    public decimal DescuentoPorcentaje { get; set; }
+    public decimal DescuentoMonto { get; set; }
+    public decimal DescuentoGlobalAsignado { get; set; }
+    public decimal Subtotal { get; set; }
     public ModoOrigenEconomico ModoOrigenEconomico { get; set; }
     public decimal? CostoCompraSnapshot { get; set; }
     public decimal? CostoMaterialesSnapshot { get; set; }

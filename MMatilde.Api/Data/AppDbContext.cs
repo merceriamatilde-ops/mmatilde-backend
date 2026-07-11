@@ -467,6 +467,9 @@ public class AppDbContext : DbContext
             b.Property(e => e.Fecha).HasColumnName("fecha");
             b.Property(e => e.Turno).HasColumnName("turno").HasMaxLength(40).IsRequired();
             b.Property(e => e.MedioPagoSlug).HasColumnName("medio_pago").HasMaxLength(120).IsRequired();
+            b.Property(e => e.SubtotalBruto).HasColumnName("subtotal_bruto").HasColumnType("numeric(18,2)");
+            b.Property(e => e.DescuentoGlobalPorcentaje).HasColumnName("descuento_global_porcentaje").HasColumnType("numeric(5,2)");
+            b.Property(e => e.DescuentoGlobalMonto).HasColumnName("descuento_global_monto").HasColumnType("numeric(18,2)");
             b.Property(e => e.Total).HasColumnName("total").HasColumnType("numeric(18,2)");
             b.Property(e => e.GananciaNetaEstimada).HasColumnName("ganancia_neta_estimada").HasColumnType("numeric(18,2)");
             b.Property(e => e.Notas).HasColumnName("notas");
@@ -496,6 +499,11 @@ public class AppDbContext : DbContext
             b.Property(e => e.ProductoNombre).HasColumnName("producto_nombre").HasMaxLength(500).IsRequired();
             b.Property(e => e.Cantidad).HasColumnName("cantidad").HasColumnType("numeric(18,4)");
             b.Property(e => e.PrecioUnitarioVenta).HasColumnName("precio_unitario_venta").HasColumnType("numeric(18,2)");
+            b.Property(e => e.SubtotalBruto).HasColumnName("subtotal_bruto").HasColumnType("numeric(18,2)");
+            b.Property(e => e.DescuentoPorcentaje).HasColumnName("descuento_porcentaje").HasColumnType("numeric(5,2)");
+            b.Property(e => e.DescuentoMonto).HasColumnName("descuento_monto").HasColumnType("numeric(18,2)");
+            b.Property(e => e.DescuentoGlobalAsignado).HasColumnName("descuento_global_asignado").HasColumnType("numeric(18,2)");
+            b.Property(e => e.Subtotal).HasColumnName("subtotal").HasColumnType("numeric(18,2)");
             b.Property(e => e.ModoOrigenEconomico).HasColumnName("modo_origen_economico").HasConversion<string>();
             b.Property(e => e.CostoCompraSnapshot).HasColumnName("costo_compra_snapshot").HasColumnType("numeric(18,2)");
             b.Property(e => e.CostoMaterialesSnapshot).HasColumnName("costo_materiales_snapshot").HasColumnType("numeric(18,2)");
