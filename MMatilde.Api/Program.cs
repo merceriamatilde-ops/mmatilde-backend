@@ -86,6 +86,8 @@ builder.Services.AddScoped<PricingService>();
 builder.Services.AddScoped<TurnosVentaService>();
 builder.Services.AddScoped<VentasService>();
 builder.Services.AddScoped<EstadisticasService>();
+builder.Services.AddScoped<PermisosModulosService>();
+builder.Services.AddScoped<UsuarioFiltroService>();
 
 //
 // =========================

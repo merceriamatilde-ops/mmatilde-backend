@@ -1,3 +1,4 @@
+using MMatilde.Api.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -11,7 +12,8 @@ namespace MMatilde.Api.Controllers;
 
 [ApiController]
 [Route("api/precios")]
-[Authorize(Roles = "ADMIN")]
+[Authorize]
+[AuthorizeModule("precios")]
 public class PreciosController : ControllerBase
 {
     private readonly AppDbContext _db;
@@ -33,6 +35,7 @@ public class PreciosController : ControllerBase
     }
 
     [HttpPut("config")]
+    [Authorize(Roles = "ADMIN")]
     public async Task<IActionResult> UpdateConfig([FromBody] PrecioConfigDto dto)
     {
         await UpsertConfig(PricingService.ConfigIva, dto.IvaPorcentaje.ToString("0.##"));
@@ -69,6 +72,7 @@ public class PreciosController : ControllerBase
     }
 
     [HttpPost("reglas")]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult<ReglaPrecioDto>> CreateRegla([FromBody] ReglaPrecioCreateDto dto)
     {
         var regla = new ReglaPrecio
@@ -95,6 +99,7 @@ public class PreciosController : ControllerBase
     }
 
     [HttpPut("reglas/{id}")]
+    [Authorize(Roles = "ADMIN")]
     public async Task<IActionResult> UpdateRegla(int id, [FromBody] ReglaPrecioCreateDto dto)
     {
         var regla = await _db.ReglasPrecio.FindAsync(id);
@@ -111,6 +116,7 @@ public class PreciosController : ControllerBase
     }
 
     [HttpDelete("reglas/{id}")]
+    [Authorize(Roles = "ADMIN")]
     public async Task<IActionResult> DeleteRegla(int id)
     {
         var regla = await _db.ReglasPrecio.FindAsync(id);
@@ -145,6 +151,7 @@ public class PreciosController : ControllerBase
     }
 
     [HttpPut("producto/{id}")]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult<ProductoUnidadesDto>> UpdateProductoUnidades(int id, [FromBody] ProductoUnidadesUpdateDto dto)
     {
         var prod = await _db.Productos
@@ -267,6 +274,7 @@ public class PreciosController : ControllerBase
     }
 
     [HttpPost("producto/{id}/detectar-unidad")]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult<UnidadSugeridaDto>> DetectarUnidad(int id)
     {
         var prod = await _db.Productos.FindAsync(id);
@@ -284,6 +292,7 @@ public class PreciosController : ControllerBase
     }
 
     [HttpPost("producto/{id}/recalcular")]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult<ProductoUnidadesDto>> Recalcular(int id)
     {
         var prod = await _db.Productos

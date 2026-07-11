@@ -1,3 +1,4 @@
+using MMatilde.Api.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -26,6 +27,7 @@ public class ProductosController : ControllerBase
 
     [HttpGet]
     [Authorize]
+    [AuthorizeModule("productos")]
     public async Task<ActionResult<ProductoAdminListResponse>> Get(
         [FromQuery] string? q, 
         [FromQuery] int? categoriaId, 
@@ -268,6 +270,7 @@ public class ProductosController : ControllerBase
 
     [HttpGet("admin/{id}")]
     [Authorize]
+    [AuthorizeModule("productos")]
     public async Task<ActionResult<object>> GetById(int id)
     {
         var prod = await _db.Productos

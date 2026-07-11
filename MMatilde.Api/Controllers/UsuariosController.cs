@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using MMatilde.Api.Data;
 using MMatilde.Api.DTOs;
 using MMatilde.Api.Models;
+using MMatilde.Api.Services;
 using System.Security.Claims;
 
 namespace MMatilde.Api.Controllers;
@@ -15,11 +16,13 @@ public class UsuariosController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly IConfiguration _config;
+    private readonly UsuarioFiltroService _filtro;
 
-    public UsuariosController(AppDbContext db, IConfiguration config)
+    public UsuariosController(AppDbContext db, IConfiguration config, UsuarioFiltroService filtro)
     {
         _db = db;
         _config = config;
+        _filtro = filtro;
     }
 
     [HttpGet]
@@ -41,25 +44,8 @@ public class UsuariosController : ControllerBase
     }
 
     [HttpGet("filtro-ventas")]
-    public async Task<ActionResult<List<UsuarioFiltroDto>>> FiltroVentas()
-    {
-        var activos = await _db.Usuarios
-            .Where(u => u.EliminadoEn == null)
-            .OrderBy(u => u.Nombre)
-            .Select(u => new UsuarioFiltroDto(u.Id, u.Nombre, false))
-            .ToListAsync();
-
-        var idsActivos = activos.Select(u => u.Id).ToHashSet();
-
-        var archivados = await _db.Usuarios
-            .Where(u => u.EliminadoEn != null && !idsActivos.Contains(u.Id))
-            .Where(u => _db.Ventas.Any(v => v.UsuarioId == u.Id))
-            .OrderBy(u => u.Nombre)
-            .Select(u => new UsuarioFiltroDto(u.Id, u.Nombre, true))
-            .ToListAsync();
-
-        return activos.Concat(archivados).ToList();
-    }
+    public async Task<ActionResult<List<UsuarioFiltroDto>>> FiltroVentas() =>
+        await _filtro.ListarParaFiltroVentasAsync();
 
     [HttpPost]
     public async Task<ActionResult<UsuarioListDto>> Create([FromBody] UsuarioCreateDto dto)

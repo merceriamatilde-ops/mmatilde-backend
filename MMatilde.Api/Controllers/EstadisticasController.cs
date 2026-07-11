@@ -1,19 +1,29 @@
+using MMatilde.Api.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MMatilde.Api.DTOs;
-using MMatilde.Api.Models;
 using MMatilde.Api.Services;
 
 namespace MMatilde.Api.Controllers;
 
 [ApiController]
 [Route("api/estadisticas")]
-[Authorize(Roles = "ADMIN")]
+[Authorize]
+[AuthorizeModule("estadisticas")]
 public class EstadisticasController : ControllerBase
 {
     private readonly EstadisticasService _stats;
+    private readonly UsuarioFiltroService _usuariosFiltro;
 
-    public EstadisticasController(EstadisticasService stats) => _stats = stats;
+    public EstadisticasController(EstadisticasService stats, UsuarioFiltroService usuariosFiltro)
+    {
+        _stats = stats;
+        _usuariosFiltro = usuariosFiltro;
+    }
+
+    [HttpGet("usuarios-filtro")]
+    public async Task<ActionResult<List<UsuarioFiltroDto>>> UsuariosFiltro() =>
+        await _usuariosFiltro.ListarParaFiltroVentasAsync();
 
     [HttpGet("resumen")]
     public async Task<ActionResult<EstadisticasResumenDto>> Resumen(

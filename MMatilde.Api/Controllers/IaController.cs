@@ -1,3 +1,4 @@
+using MMatilde.Api.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -51,7 +52,8 @@ public class IaController : ControllerBase
     }
 
     [HttpGet("consultas")]
-    [Authorize(Roles = "ADMIN")]
+    [Authorize]
+    [AuthorizeModule("ia")]
     public async Task<ActionResult<List<IaConsultaDto>>> ListarConsultas(
         [FromQuery] string? evaluacion = null,
         [FromQuery] bool pendientes = false,
@@ -74,7 +76,8 @@ public class IaController : ControllerBase
     }
 
     [HttpGet("consultas/{id:int}")]
-    [Authorize(Roles = "ADMIN")]
+    [Authorize]
+    [AuthorizeModule("ia")]
     public async Task<ActionResult<IaConsultaDto>> ObtenerConsulta(int id)
     {
         var consulta = await _db.IaConsultas.FindAsync(id);
@@ -170,7 +173,8 @@ public class IaController : ControllerBase
     }
 
     [HttpGet("reglas")]
-    [Authorize(Roles = "ADMIN")]
+    [Authorize]
+    [AuthorizeModule("ia")]
     public async Task<ActionResult<List<IaReglaDto>>> ListarReglas()
     {
         var reglas = await _db.IaReglasAprendidas
@@ -228,7 +232,8 @@ public class IaController : ControllerBase
     }
 
     [HttpGet("ejemplos")]
-    [Authorize(Roles = "ADMIN")]
+    [Authorize]
+    [AuthorizeModule("ia")]
     public async Task<ActionResult<List<IaEjemploDto>>> ListarEjemplos()
     {
         var items = await _db.IaEjemplos

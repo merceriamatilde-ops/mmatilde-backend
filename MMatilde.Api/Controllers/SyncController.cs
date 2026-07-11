@@ -1,3 +1,4 @@
+using MMatilde.Api.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -9,7 +10,7 @@ namespace MMatilde.Api.Controllers;
 
 [Route("api/sync")]
 [ApiController]
-[Authorize(Roles = "ADMIN")]
+[Authorize]
 public class SyncController : ControllerBase
 {
     private readonly AppDbContext _db;
@@ -22,6 +23,7 @@ public class SyncController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult<SyncResponse>> ExecuteSync([FromBody] SyncRequest req)
     {
         if (req.Terms == null || req.Terms.Count == 0) return BadRequest("No terms provided");
@@ -31,6 +33,7 @@ public class SyncController : ControllerBase
     }
 
     [HttpGet("logs")]
+    [AuthorizeModule("sync")]
     public async Task<ActionResult<List<SyncLogDto>>> GetLogs()
     {
         var logs = await _db.SyncLogs

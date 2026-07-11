@@ -1,3 +1,4 @@
+using MMatilde.Api.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -12,6 +13,7 @@ namespace MMatilde.Api.Controllers;
 [ApiController]
 [Route("api/ventas")]
 [Authorize]
+[AuthorizeModule("ventas")]
 public class VentasController : ControllerBase
 {
     private readonly AppDbContext _db;
