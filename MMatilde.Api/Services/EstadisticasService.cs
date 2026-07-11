@@ -16,13 +16,15 @@ public class EstadisticasService
         DateOnly hasta,
         string? turno,
         string? medioPagoSlug,
-        bool comparar)
+        bool comparar,
+        Guid? usuarioId = null,
+        bool sinUsuario = false)
     {
         var (desdeUtc, _) = VentasService.RangoDiaArgentina(desde);
         var (_, hastaUtc) = VentasService.RangoDiaArgentina(hasta);
 
-        var ventas = await QueryVentas(desdeUtc, hastaUtc, turno, medioPagoSlug).ToListAsync();
-        var lineas = await QueryLineas(desdeUtc, hastaUtc, turno, medioPagoSlug).ToListAsync();
+        var ventas = await QueryVentas(desdeUtc, hastaUtc, turno, medioPagoSlug, usuarioId, sinUsuario).ToListAsync();
+        var lineas = await QueryLineas(desdeUtc, hastaUtc, turno, medioPagoSlug, usuarioId, sinUsuario).ToListAsync();
 
         var kpis = BuildKpis(ventas, lineas);
         EstadisticasKpiDto? anterior = null;
@@ -34,8 +36,8 @@ public class EstadisticasService
             var prevDesde = prevHasta.AddDays(-(dias - 1));
             var (pDesdeUtc, _) = VentasService.RangoDiaArgentina(prevDesde);
             var (_, pHastaUtc) = VentasService.RangoDiaArgentina(prevHasta);
-            var ventasPrev = await QueryVentas(pDesdeUtc, pHastaUtc, turno, medioPagoSlug).ToListAsync();
-            var lineasPrev = await QueryLineas(pDesdeUtc, pHastaUtc, turno, medioPagoSlug).ToListAsync();
+            var ventasPrev = await QueryVentas(pDesdeUtc, pHastaUtc, turno, medioPagoSlug, usuarioId, sinUsuario).ToListAsync();
+            var lineasPrev = await QueryLineas(pDesdeUtc, pHastaUtc, turno, medioPagoSlug, usuarioId, sinUsuario).ToListAsync();
             anterior = BuildKpis(ventasPrev, lineasPrev);
         }
 
@@ -61,21 +63,40 @@ public class EstadisticasService
             BuildTopProductos(lineas),
             BuildPorCategoria(lineas, productoCategorias, categoriasMap),
             BuildPorMedioPago(ventas, mediosMap),
-            BuildPorOrigen(lineas)
+            BuildPorOrigen(lineas),
+            BuildPorUsuario(ventas)
         );
     }
 
-    private IQueryable<Venta> QueryVentas(DateTime desdeUtc, DateTime hastaUtc, string? turno, string? medioPagoSlug)
+    private IQueryable<Venta> QueryVentas(
+        DateTime desdeUtc,
+        DateTime hastaUtc,
+        string? turno,
+        string? medioPagoSlug,
+        Guid? usuarioId,
+        bool sinUsuario)
     {
-        var q = _db.Ventas.Where(v => v.Fecha >= desdeUtc && v.Fecha <= hastaUtc);
+        var q = _db.Ventas
+            .Include(v => v.Usuario)
+            .Where(v => v.Fecha >= desdeUtc && v.Fecha <= hastaUtc);
         if (!string.IsNullOrWhiteSpace(turno))
             q = q.Where(v => v.Turno == turno.Trim().ToUpperInvariant());
         if (!string.IsNullOrWhiteSpace(medioPagoSlug))
             q = q.Where(v => v.MedioPagoSlug == medioPagoSlug.Trim().ToLowerInvariant());
+        if (sinUsuario)
+            q = q.Where(v => v.UsuarioId == null);
+        else if (usuarioId.HasValue)
+            q = q.Where(v => v.UsuarioId == usuarioId);
         return q;
     }
 
-    private IQueryable<VentaLinea> QueryLineas(DateTime desdeUtc, DateTime hastaUtc, string? turno, string? medioPagoSlug)
+    private IQueryable<VentaLinea> QueryLineas(
+        DateTime desdeUtc,
+        DateTime hastaUtc,
+        string? turno,
+        string? medioPagoSlug,
+        Guid? usuarioId,
+        bool sinUsuario)
     {
         var q = _db.VentaLineas
             .Include(l => l.Venta)
@@ -85,6 +106,10 @@ public class EstadisticasService
             q = q.Where(l => l.Venta!.Turno == turno.Trim().ToUpperInvariant());
         if (!string.IsNullOrWhiteSpace(medioPagoSlug))
             q = q.Where(l => l.Venta!.MedioPagoSlug == medioPagoSlug.Trim().ToLowerInvariant());
+        if (sinUsuario)
+            q = q.Where(l => l.Venta!.UsuarioId == null);
+        else if (usuarioId.HasValue)
+            q = q.Where(l => l.Venta!.UsuarioId == usuarioId);
 
         return q;
     }
@@ -194,6 +219,25 @@ public class EstadisticasService
                 g.Sum(l => l.Cantidad * l.PrecioUnitarioVenta),
                 g.Sum(l => l.GananciaNetaEstimada)
             ))
+            .OrderByDescending(x => x.Facturacion)
+            .ToList();
+
+    private static List<EstadisticasSerieUsuarioDto> BuildPorUsuario(List<Venta> ventas) =>
+        ventas
+            .GroupBy(v => v.UsuarioId)
+            .Select(g =>
+            {
+                var first = g.First();
+                var nombre = VentasService.ResolveUsuarioNombre(first)
+                    ?? (g.Key == null ? "Sin asignar" : "Usuario archivado");
+                return new EstadisticasSerieUsuarioDto(
+                    g.Key,
+                    nombre,
+                    g.Sum(v => v.Total),
+                    g.Sum(v => v.GananciaNetaEstimada),
+                    g.Count()
+                );
+            })
             .OrderByDescending(x => x.Facturacion)
             .ToList();
 }

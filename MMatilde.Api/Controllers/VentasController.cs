@@ -87,12 +87,18 @@ public class VentasController : ControllerBase
         [FromQuery] string? q,
         [FromQuery] string? ordenar = "fecha",
         [FromQuery] string? direccion = "desc",
+        [FromQuery] bool mias = false,
+        [FromQuery] Guid? usuarioId = null,
+        [FromQuery] bool sinUsuario = false,
         [FromQuery] int limit = 100)
     {
         var query = _db.Ventas
             .Include(v => v.Lineas)
             .Include(v => v.Usuario)
             .AsQueryable();
+
+        query = ApplyUsuarioFilter(query, mias, usuarioId, sinUsuario);
+        if (query == null) return Unauthorized();
 
         if (desde.HasValue)
         {
@@ -142,14 +148,21 @@ public class VentasController : ControllerBase
     [HttpGet("resumen")]
     public async Task<ActionResult<VentaResumenDto>> Resumen(
         [FromQuery] DateOnly fecha,
-        [FromQuery] string turno)
+        [FromQuery] string turno,
+        [FromQuery] bool mias = false,
+        [FromQuery] Guid? usuarioId = null,
+        [FromQuery] bool sinUsuario = false)
     {
         var turnoSlug = turno.Trim().ToUpperInvariant();
         var (desdeUtc, hastaUtc) = VentasService.RangoDiaArgentina(fecha);
 
-        var ventas = await _db.Ventas
-            .Where(v => v.Fecha >= desdeUtc && v.Fecha <= hastaUtc && v.Turno == turnoSlug)
-            .ToListAsync();
+        var query = _db.Ventas
+            .Where(v => v.Fecha >= desdeUtc && v.Fecha <= hastaUtc && v.Turno == turnoSlug);
+
+        query = ApplyUsuarioFilter(query, mias, usuarioId, sinUsuario);
+        if (query == null) return Unauthorized();
+
+        var ventas = await query.ToListAsync();
 
         var count = ventas.Count;
         var total = ventas.Sum(v => v.Total);
@@ -173,6 +186,7 @@ public class VentasController : ControllerBase
             .Include(v => v.Usuario)
             .FirstOrDefaultAsync(v => v.Id == id);
         if (venta == null) return NotFound();
+        if (!CanAccessVenta(venta)) return Forbid();
         var mediosMap = await _ventas.GetMediosNombreMapAsync();
         return _ventas.MapDetail(venta, mediosMap);
     }
@@ -199,6 +213,10 @@ public class VentasController : ControllerBase
     {
         try
         {
+            var existing = await _db.Ventas.FindAsync(id);
+            if (existing == null) return NotFound();
+            if (!CanAccessVenta(existing)) return Forbid();
+
             var venta = await _ventas.ActualizarVentaAsync(id, dto);
             if (venta == null) return NotFound();
             var mediosMap = await _ventas.GetMediosNombreMapAsync();
@@ -225,6 +243,40 @@ public class VentasController : ControllerBase
     {
         var raw = User.FindFirstValue(ClaimTypes.NameIdentifier);
         return Guid.TryParse(raw, out var id) ? id : null;
+    }
+
+    private bool CanAccessVenta(Venta venta)
+    {
+        if (User.IsInRole("ADMIN")) return true;
+        var userId = GetUserId();
+        return userId != null && venta.UsuarioId == userId;
+    }
+
+    private IQueryable<Venta>? ApplyUsuarioFilter(
+        IQueryable<Venta> query,
+        bool mias,
+        Guid? usuarioId,
+        bool sinUsuario)
+    {
+        if (!User.IsInRole("ADMIN"))
+        {
+            var userId = GetUserId();
+            if (userId == null) return null;
+            return query.Where(v => v.UsuarioId == userId);
+        }
+
+        if (sinUsuario)
+            return query.Where(v => v.UsuarioId == null);
+        if (usuarioId.HasValue)
+            return query.Where(v => v.UsuarioId == usuarioId);
+        if (mias)
+        {
+            var userId = GetUserId();
+            if (userId == null) return null;
+            return query.Where(v => v.UsuarioId == userId);
+        }
+
+        return query;
     }
 }
 

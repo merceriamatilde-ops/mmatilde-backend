@@ -27,7 +27,7 @@ public class AuthController : ControllerBase
     {
         var email = req.Email.Trim().ToLowerInvariant();
         var user = await _db.Usuarios.FirstOrDefaultAsync(u => u.Email.ToLower() == email);
-        if (user == null || !user.Activo || !BCrypt.Net.BCrypt.Verify(req.Password, user.PasswordHash))
+        if (user == null || user.EliminadoEn != null || !user.Activo || !BCrypt.Net.BCrypt.Verify(req.Password, user.PasswordHash))
         {
             return Unauthorized(new { message = "Credenciales inválidas" });
         }

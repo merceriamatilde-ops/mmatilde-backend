@@ -39,6 +39,9 @@ public class VentasService
         );
     }
 
+    public static string? ResolveUsuarioNombre(Venta venta) =>
+        venta.Usuario?.Nombre ?? venta.UsuarioNombre;
+
     private static TimeZoneInfo ArgentinaTimeZone() =>
         TimeZoneInfo.FindSystemTimeZoneById(
             OperatingSystem.IsWindows() ? "Argentina Standard Time" : "America/Argentina/Buenos_Aires");
@@ -125,6 +128,13 @@ public class VentasService
             UsuarioId = usuarioId,
         };
 
+        if (usuarioId.HasValue)
+        {
+            var usuario = await _db.Usuarios.AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == usuarioId.Value);
+            venta.UsuarioNombre = usuario?.Nombre;
+        }
+
         foreach (var linea in dto.Lineas)
             venta.Lineas.Add(await BuildLineaAsync(linea));
 
@@ -175,7 +185,7 @@ public class VentasService
         venta.Lineas.Count,
         venta.Notas,
         venta.UsuarioId,
-        venta.Usuario?.Nombre
+        ResolveUsuarioNombre(venta)
     );
 
     public VentaDetailDto MapDetail(Venta venta, IReadOnlyDictionary<string, string> mediosMap) => new(
@@ -188,7 +198,7 @@ public class VentasService
         venta.GananciaNetaEstimada,
         venta.Notas,
         venta.UsuarioId,
-        venta.Usuario?.Nombre,
+        ResolveUsuarioNombre(venta),
         venta.Lineas
             .OrderBy(l => l.Id)
             .Select(l => new VentaLineaDto(

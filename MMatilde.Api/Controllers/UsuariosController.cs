@@ -26,6 +26,7 @@ public class UsuariosController : ControllerBase
     public async Task<ActionResult<List<UsuarioListDto>>> List()
     {
         var items = await _db.Usuarios
+            .Where(u => u.EliminadoEn == null)
             .OrderBy(u => u.Nombre)
             .Select(u => new UsuarioListDto(
                 u.Id,
@@ -37,6 +38,27 @@ public class UsuariosController : ControllerBase
             .ToListAsync();
 
         return items;
+    }
+
+    [HttpGet("filtro-ventas")]
+    public async Task<ActionResult<List<UsuarioFiltroDto>>> FiltroVentas()
+    {
+        var activos = await _db.Usuarios
+            .Where(u => u.EliminadoEn == null)
+            .OrderBy(u => u.Nombre)
+            .Select(u => new UsuarioFiltroDto(u.Id, u.Nombre, false))
+            .ToListAsync();
+
+        var idsActivos = activos.Select(u => u.Id).ToHashSet();
+
+        var archivados = await _db.Usuarios
+            .Where(u => u.EliminadoEn != null && !idsActivos.Contains(u.Id))
+            .Where(u => _db.Ventas.Any(v => v.UsuarioId == u.Id))
+            .OrderBy(u => u.Nombre)
+            .Select(u => new UsuarioFiltroDto(u.Id, u.Nombre, true))
+            .ToListAsync();
+
+        return activos.Concat(archivados).ToList();
     }
 
     [HttpPost]
@@ -52,7 +74,7 @@ public class UsuariosController : ControllerBase
         if (!TryParseRol(dto.Rol, out var rol))
             return BadRequest(new { message = "Rol inválido." });
 
-        if (await _db.Usuarios.AnyAsync(u => u.Email.ToLower() == email))
+        if (await _db.Usuarios.AnyAsync(u => u.Email.ToLower() == email && u.EliminadoEn == null))
             return BadRequest(new { message = "Ya existe un usuario con ese email." });
 
         var user = new Usuario
@@ -76,7 +98,7 @@ public class UsuariosController : ControllerBase
     {
         var currentId = GetUserId();
         var user = await _db.Usuarios.FindAsync(id);
-        if (user == null) return NotFound();
+        if (user == null || user.EliminadoEn != null) return NotFound();
 
         var email = NormalizeEmail(dto.Email);
         if (string.IsNullOrWhiteSpace(email))
@@ -86,7 +108,7 @@ public class UsuariosController : ControllerBase
         if (!TryParseRol(dto.Rol, out var rol))
             return BadRequest(new { message = "Rol inválido." });
 
-        if (await _db.Usuarios.AnyAsync(u => u.Id != id && u.Email.ToLower() == email))
+        if (await _db.Usuarios.AnyAsync(u => u.Id != id && u.Email.ToLower() == email && u.EliminadoEn == null))
             return BadRequest(new { message = "Ya existe otro usuario con ese email." });
 
         if (IsSuperAdmin(user.Email))
@@ -110,7 +132,7 @@ public class UsuariosController : ControllerBase
         if (user.Rol == RolUsuario.ADMIN && (rol != RolUsuario.ADMIN || !dto.Activo))
         {
             var otrosAdminsActivos = await _db.Usuarios.CountAsync(u =>
-                u.Id != id && u.Rol == RolUsuario.ADMIN && u.Activo);
+                u.Id != id && u.Rol == RolUsuario.ADMIN && u.Activo && u.EliminadoEn == null);
             if (otrosAdminsActivos == 0)
                 return BadRequest(new { message = "Debe quedar al menos un administrador activo." });
         }
@@ -130,7 +152,7 @@ public class UsuariosController : ControllerBase
     public async Task<IActionResult> SetPassword(Guid id, [FromBody] UsuarioPasswordDto dto)
     {
         var user = await _db.Usuarios.FindAsync(id);
-        if (user == null) return NotFound();
+        if (user == null || user.EliminadoEn != null) return NotFound();
 
         if (string.IsNullOrWhiteSpace(dto.Password) || dto.Password.Length < 8)
             return BadRequest(new { message = "La contraseña debe tener al menos 8 caracteres." });
@@ -147,7 +169,7 @@ public class UsuariosController : ControllerBase
     {
         var currentId = GetUserId();
         var user = await _db.Usuarios.FindAsync(id);
-        if (user == null) return NotFound();
+        if (user == null || user.EliminadoEn != null) return NotFound();
 
         if (IsSuperAdmin(user.Email))
             return BadRequest(new { message = "No se puede eliminar el superadmin." });
@@ -155,7 +177,21 @@ public class UsuariosController : ControllerBase
         if (currentId == id)
             return BadRequest(new { message = "No podés eliminar tu propia cuenta." });
 
-        _db.Usuarios.Remove(user);
+        if (user.Rol == RolUsuario.ADMIN)
+        {
+            var otrosAdminsActivos = await _db.Usuarios.CountAsync(u =>
+                u.Id != id && u.Rol == RolUsuario.ADMIN && u.Activo && u.EliminadoEn == null);
+            if (otrosAdminsActivos == 0)
+                return BadRequest(new { message = "Debe quedar al menos un administrador activo." });
+        }
+
+        var carrito = await _db.VentaCarritosBorrador.FindAsync(id);
+        if (carrito != null)
+            _db.VentaCarritosBorrador.Remove(carrito);
+
+        user.Activo = false;
+        user.EliminadoEn = DateTime.UtcNow;
+        user.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
         return NoContent();

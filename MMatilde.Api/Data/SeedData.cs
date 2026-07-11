@@ -123,7 +123,7 @@ public static class SeedData
         RolUsuario rol)
     {
         var normalized = email.Trim().ToLowerInvariant();
-        var exists = await db.Usuarios.AnyAsync(u => u.Email.ToLower() == normalized);
+        var exists = await db.Usuarios.AnyAsync(u => u.Email.ToLower() == normalized && u.EliminadoEn == null);
         if (exists) return;
 
         db.Usuarios.Add(new Usuario
@@ -143,7 +143,7 @@ public static class SeedData
         RolUsuario rol)
     {
         var normalized = email.Trim().ToLowerInvariant();
-        var user = await db.Usuarios.FirstOrDefaultAsync(u => u.Email.ToLower() == normalized);
+        var user = await db.Usuarios.FirstOrDefaultAsync(u => u.Email.ToLower() == normalized && u.EliminadoEn == null);
         if (user == null) return;
 
         user.Nombre = nombre.Trim();

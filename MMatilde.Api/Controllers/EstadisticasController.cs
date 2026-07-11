@@ -21,11 +21,13 @@ public class EstadisticasController : ControllerBase
         [FromQuery] DateOnly hasta,
         [FromQuery] string? turno,
         [FromQuery] string? medioPago,
-        [FromQuery] bool comparar = true)
+        [FromQuery] bool comparar = true,
+        [FromQuery] Guid? usuarioId = null,
+        [FromQuery] bool sinUsuario = false)
     {
         if (hasta < desde)
             return BadRequest(new { message = "La fecha hasta debe ser posterior a desde." });
 
-        return await _stats.GetResumenAsync(desde, hasta, turno, medioPago, comparar);
+        return await _stats.GetResumenAsync(desde, hasta, turno, medioPago, comparar, usuarioId, sinUsuario);
     }
 }

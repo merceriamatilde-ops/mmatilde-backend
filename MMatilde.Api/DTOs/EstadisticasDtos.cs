@@ -33,6 +33,14 @@ public record EstadisticasSerieMedioPagoDto(string MedioPagoSlug, string MedioPa
 
 public record EstadisticasSerieOrigenDto(string OrigenEconomico, decimal Facturacion, decimal Ganancia);
 
+public record EstadisticasSerieUsuarioDto(
+    Guid? UsuarioId,
+    string UsuarioNombre,
+    decimal Facturacion,
+    decimal Ganancia,
+    int Ventas
+);
+
 public record EstadisticasResumenDto(
     string Desde,
     string Hasta,
@@ -43,5 +51,6 @@ public record EstadisticasResumenDto(
     List<EstadisticasTopProductoDto> TopProductos,
     List<EstadisticasSerieCategoriaDto> PorCategoria,
     List<EstadisticasSerieMedioPagoDto> PorMedioPago,
-    List<EstadisticasSerieOrigenDto> PorOrigenEconomico
+    List<EstadisticasSerieOrigenDto> PorOrigenEconomico,
+    List<EstadisticasSerieUsuarioDto> PorUsuario
 );

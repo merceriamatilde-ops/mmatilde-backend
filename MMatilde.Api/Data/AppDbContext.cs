@@ -48,7 +48,8 @@ public class AppDbContext : DbContext
             b.HasKey(e => e.Id);
             b.Property(e => e.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
             b.Property(e => e.Email).HasColumnName("email").HasMaxLength(255).IsRequired();
-            b.HasIndex(e => e.Email).IsUnique();
+            b.HasIndex(e => e.Email).IsUnique().HasFilter("eliminado_en IS NULL");
+            b.Property(e => e.EliminadoEn).HasColumnName("eliminado_en");
             b.Property(e => e.Nombre).HasColumnName("nombre").HasMaxLength(255).IsRequired();
             b.Property(e => e.PasswordHash).HasColumnName("password_hash").HasMaxLength(255).IsRequired();
             b.Property(e => e.Rol).HasColumnName("rol").HasConversion<string>();
@@ -470,6 +471,7 @@ public class AppDbContext : DbContext
             b.Property(e => e.GananciaNetaEstimada).HasColumnName("ganancia_neta_estimada").HasColumnType("numeric(18,2)");
             b.Property(e => e.Notas).HasColumnName("notas");
             b.Property(e => e.UsuarioId).HasColumnName("usuario_id");
+            b.Property(e => e.UsuarioNombre).HasColumnName("usuario_nombre").HasMaxLength(255);
             b.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             b.HasIndex(e => e.Fecha);
             b.HasIndex(e => e.Turno);

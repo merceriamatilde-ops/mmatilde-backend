@@ -13,6 +13,8 @@ public class Venta
     public string? Notas { get; set; }
     public Guid? UsuarioId { get; set; }
     public Usuario? Usuario { get; set; }
+    /// <summary>Snapshot del nombre al crear la venta (persiste si el usuario se archiva).</summary>
+    public string? UsuarioNombre { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public ICollection<VentaLinea> Lineas { get; set; } = new List<VentaLinea>();

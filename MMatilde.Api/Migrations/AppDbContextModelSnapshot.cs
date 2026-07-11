@@ -1296,6 +1296,10 @@ namespace MMatilde.Api.Migrations
                         .HasDefaultValue(true)
                         .HasColumnName("activo");
 
+                    b.Property<DateTime?>("EliminadoEn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("eliminado_en");
+
                     b.Property<DateTime>("UpdatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -1305,7 +1309,8 @@ namespace MMatilde.Api.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("Email")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("eliminado_en IS NULL");
 
                     b.ToTable("usuarios", (string)null);
                 });
@@ -1378,6 +1383,11 @@ namespace MMatilde.Api.Migrations
                     b.Property<Guid?>("UsuarioId")
                         .HasColumnType("uuid")
                         .HasColumnName("usuario_id");
+
+                    b.Property<string>("UsuarioNombre")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("usuario_nombre");
 
                     b.HasKey("Id");
 

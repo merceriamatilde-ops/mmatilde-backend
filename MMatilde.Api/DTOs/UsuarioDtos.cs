@@ -24,3 +24,9 @@ public record UsuarioUpdateDto(
 );
 
 public record UsuarioPasswordDto(string Password);
+
+public record UsuarioFiltroDto(
+    Guid Id,
+    string Nombre,
+    bool Eliminado
+);
