@@ -25,8 +25,13 @@ public class EstadisticasService
 
         var ventas = await QueryVentas(desdeUtc, hastaUtc, turno, medioPagoSlug, usuarioId, sinUsuario).ToListAsync();
         var lineas = await QueryLineas(desdeUtc, hastaUtc, turno, medioPagoSlug, usuarioId, sinUsuario).ToListAsync();
+        var ventaLibreIds = await _db.Productos
+            .Where(p => p.EsVentaLibre)
+            .Select(p => p.Id)
+            .ToListAsync();
+        var ventaLibreSet = ventaLibreIds.ToHashSet();
 
-        var kpis = BuildKpis(ventas, lineas);
+        var kpis = BuildKpis(ventas, lineas, ventaLibreSet);
         EstadisticasKpiDto? anterior = null;
 
         if (comparar)
@@ -38,7 +43,7 @@ public class EstadisticasService
             var (_, pHastaUtc) = VentasService.RangoDiaArgentina(prevHasta);
             var ventasPrev = await QueryVentas(pDesdeUtc, pHastaUtc, turno, medioPagoSlug, usuarioId, sinUsuario).ToListAsync();
             var lineasPrev = await QueryLineas(pDesdeUtc, pHastaUtc, turno, medioPagoSlug, usuarioId, sinUsuario).ToListAsync();
-            anterior = BuildKpis(ventasPrev, lineasPrev);
+            anterior = BuildKpis(ventasPrev, lineasPrev, ventaLibreSet);
         }
 
         var mediosMap = await _db.MediosPago.ToDictionaryAsync(m => m.Slug, m => m.Nombre);
@@ -60,13 +65,19 @@ public class EstadisticasService
             anterior,
             BuildPorDia(ventas),
             BuildPorTurno(ventas),
-            BuildTopProductos(lineas),
-            BuildPorCategoria(lineas, productoCategorias, categoriasMap),
+            BuildTopProductos(lineas, ventaLibreSet),
+            BuildPorCategoria(lineas, productoCategorias, categoriasMap, ventaLibreSet),
             BuildPorMedioPago(ventas, mediosMap),
-            BuildPorOrigen(lineas),
+            BuildPorOrigen(lineas, ventaLibreSet),
             BuildPorUsuario(ventas)
         );
     }
+
+    private static bool EsLineaVentaLibre(VentaLinea linea, HashSet<int> ventaLibreIds) =>
+        linea.ProductoId.HasValue && ventaLibreIds.Contains(linea.ProductoId.Value);
+
+    private static decimal LineaFacturacion(VentaLinea linea) =>
+        linea.Subtotal > 0 ? linea.Subtotal : Math.Round(linea.Cantidad * linea.PrecioUnitarioVenta, 2);
 
     private IQueryable<Venta> QueryVentas(
         DateTime desdeUtc,
@@ -114,12 +125,16 @@ public class EstadisticasService
         return q;
     }
 
-    private static EstadisticasKpiDto BuildKpis(List<Venta> ventas, List<VentaLinea> lineas)
+    private static EstadisticasKpiDto BuildKpis(
+        List<Venta> ventas,
+        List<VentaLinea> lineas,
+        HashSet<int> ventaLibreIds)
     {
         var facturacion = ventas.Sum(v => v.Total);
         var ganancia = ventas.Sum(v => v.GananciaNetaEstimada);
         var count = ventas.Count;
         var items = lineas.Sum(l => l.Cantidad);
+        var lineasSinCatalogo = lineas.Where(l => EsLineaVentaLibre(l, ventaLibreIds)).ToList();
 
         return new EstadisticasKpiDto(
             facturacion,
@@ -127,7 +142,9 @@ public class EstadisticasService
             facturacion > 0 ? Math.Round(ganancia / facturacion * 100m, 1) : 0m,
             count,
             count > 0 ? Math.Round(facturacion / count, 2) : 0m,
-            items
+            items,
+            lineasSinCatalogo.Sum(LineaFacturacion),
+            lineasSinCatalogo.Sum(l => l.Cantidad)
         );
     }
 
@@ -157,15 +174,17 @@ public class EstadisticasService
             .OrderBy(x => x.Turno)
             .ToList();
 
-    private static List<EstadisticasTopProductoDto> BuildTopProductos(List<VentaLinea> lineas) =>
+    private static List<EstadisticasTopProductoDto> BuildTopProductos(
+        List<VentaLinea> lineas,
+        HashSet<int> ventaLibreIds) =>
         lineas
-            .Where(l => l.ProductoId.HasValue)
+            .Where(l => l.ProductoId.HasValue && !EsLineaVentaLibre(l, ventaLibreIds))
             .GroupBy(l => new { ProductoId = l.ProductoId!.Value, l.ProductoNombre })
             .Select(g => new EstadisticasTopProductoDto(
                 g.Key.ProductoId,
                 g.Key.ProductoNombre,
                 g.Sum(l => l.Cantidad),
-                g.Sum(l => l.Cantidad * l.PrecioUnitarioVenta),
+                g.Sum(LineaFacturacion),
                 g.Sum(l => l.GananciaNetaEstimada)
             ))
             .OrderByDescending(x => x.Facturacion)
@@ -175,9 +194,11 @@ public class EstadisticasService
     private static List<EstadisticasSerieCategoriaDto> BuildPorCategoria(
         List<VentaLinea> lineas,
         Dictionary<int, int> productoCategorias,
-        Dictionary<int, string> categoriasMap)
+        Dictionary<int, string> categoriasMap,
+        HashSet<int> ventaLibreIds)
     {
         return lineas
+            .Where(l => !EsLineaVentaLibre(l, ventaLibreIds))
             .GroupBy(l =>
             {
                 if (!l.ProductoId.HasValue || !productoCategorias.TryGetValue(l.ProductoId.Value, out var catId))
@@ -188,7 +209,7 @@ public class EstadisticasService
             .Select(g => new EstadisticasSerieCategoriaDto(
                 g.Key.Id,
                 g.Key.Nombre,
-                g.Sum(l => l.Cantidad * l.PrecioUnitarioVenta),
+                g.Sum(LineaFacturacion),
                 g.Sum(l => l.GananciaNetaEstimada),
                 g.Sum(l => l.Cantidad)
             ))
@@ -211,12 +232,15 @@ public class EstadisticasService
             .OrderByDescending(x => x.Facturacion)
             .ToList();
 
-    private static List<EstadisticasSerieOrigenDto> BuildPorOrigen(List<VentaLinea> lineas) =>
+    private static List<EstadisticasSerieOrigenDto> BuildPorOrigen(
+        List<VentaLinea> lineas,
+        HashSet<int> ventaLibreIds) =>
         lineas
+            .Where(l => !EsLineaVentaLibre(l, ventaLibreIds))
             .GroupBy(l => l.ModoOrigenEconomico.ToString())
             .Select(g => new EstadisticasSerieOrigenDto(
                 g.Key,
-                g.Sum(l => l.Cantidad * l.PrecioUnitarioVenta),
+                g.Sum(LineaFacturacion),
                 g.Sum(l => l.GananciaNetaEstimada)
             ))
             .OrderByDescending(x => x.Facturacion)

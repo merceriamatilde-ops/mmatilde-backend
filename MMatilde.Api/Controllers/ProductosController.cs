@@ -166,7 +166,7 @@ public class ProductosController : ControllerBase
             .Include(p => p.Variantes).ThenInclude(v => v.Color)
             .Include(p => p.Relacionados).ThenInclude(r => r.ProductoVinculado).ThenInclude(pv => pv.Imagenes)
             .Include(p => p.Tags).ThenInclude(t => t.Tag)
-            .FirstOrDefaultAsync(p => p.Slug == slug && p.Activo);
+            .FirstOrDefaultAsync(p => p.Slug == slug && p.Activo && !p.EsVentaLibre);
 
         if (prod == null) return NotFound();
 

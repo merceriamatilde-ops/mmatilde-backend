@@ -34,6 +34,8 @@ public class VentaLinea
     public int? PresentacionId { get; set; }
     public string? PresentacionNombre { get; set; }
     public string ProductoNombre { get; set; } = string.Empty;
+    /// <summary>Descripción de qué se vendió (líneas "Varios").</summary>
+    public string? NotaLinea { get; set; }
     public decimal Cantidad { get; set; } = 1;
     public decimal PrecioUnitarioVenta { get; set; }
     public decimal SubtotalBruto { get; set; }

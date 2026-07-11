@@ -540,6 +540,12 @@ namespace MMatilde.Api.Migrations
                         .HasDefaultValue(false)
                         .HasColumnName("destacado");
 
+                    b.Property<bool>("EsVentaLibre")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("es_venta_libre");
+
                     b.Property<string>("EtiquetaUnidadCompra")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
@@ -1498,6 +1504,11 @@ namespace MMatilde.Api.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
                         .HasColumnName("producto_nombre");
+
+                    b.Property<string>("NotaLinea")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("nota_linea");
 
                     b.Property<int?>("VarianteId")
                         .HasColumnType("integer")

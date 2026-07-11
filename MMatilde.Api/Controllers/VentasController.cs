@@ -31,6 +31,14 @@ public class VentasController : ControllerBase
         return await _ventas.BuscarProductosAsync(q, limit);
     }
 
+    [HttpGet("producto-venta-libre")]
+    public async Task<ActionResult<ProductoVentaBusquedaDto>> GetProductoVentaLibre()
+    {
+        var dto = await _ventas.GetProductoVentaLibreAsync();
+        if (dto == null) return NotFound();
+        return dto;
+    }
+
     [HttpGet("carrito")]
     public async Task<ActionResult<VentaCarritoDto>> GetCarrito()
     {
@@ -122,6 +130,7 @@ public class VentasController : ControllerBase
             var patron = $"%{q.Trim()}%";
             query = query.Where(v =>
                 v.Lineas.Any(l => EF.Functions.ILike(l.ProductoNombre, patron)) ||
+                v.Lineas.Any(l => l.NotaLinea != null && EF.Functions.ILike(l.NotaLinea, patron)) ||
                 (v.Notas != null && EF.Functions.ILike(v.Notas, patron)));
         }
 

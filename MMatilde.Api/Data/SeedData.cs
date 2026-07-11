@@ -113,6 +113,34 @@ public static class SeedData
         }
 
         await db.SaveChangesAsync();
+
+        await EnsureProductoVariosAsync(db);
+    }
+
+    private static async Task EnsureProductoVariosAsync(AppDbContext db)
+    {
+        if (await db.Productos.AnyAsync(p => p.EsVentaLibre))
+            return;
+
+        var proveedor = await db.Proveedores.FirstOrDefaultAsync(p => p.Slug == "manual")
+            ?? await db.Proveedores.FirstAsync();
+        var categoria = await db.Categorias.FirstOrDefaultAsync(c => c.Nombre == "Complementos")
+            ?? await db.Categorias.FirstAsync();
+
+        db.Productos.Add(new Producto
+        {
+            CodigoMakor = "VARIOS",
+            Nombre = "Varios",
+            Slug = "varios",
+            Descripcion = "Venta de ítems no catalogados. Solo uso interno en mostrador.",
+            ModoPrecio = ModoPrecio.PRECIO_FIJO,
+            ModoOrigenEconomico = ModoOrigenEconomico.SIN_COSTO,
+            Activo = false,
+            EsVentaLibre = true,
+            CategoriaId = categoria.Id,
+            ProveedorId = proveedor.Id,
+        });
+        await db.SaveChangesAsync();
     }
 
     private static async Task EnsureUsuarioAsync(

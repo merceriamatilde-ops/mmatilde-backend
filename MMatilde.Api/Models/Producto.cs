@@ -44,6 +44,8 @@ public class Producto
     public decimal? MargenElaboracionMonto { get; set; }
 
     public bool Destacado { get; set; } = false;
+    /// <summary>Producto genérico para ventas sin catálogo (ej. "Varios"). Excluido de rankings.</summary>
+    public bool EsVentaLibre { get; set; } = false;
     public bool Activo { get; set; } = false;
     public int CategoriaId { get; set; }
     public int? SubcategoriaId { get; set; }

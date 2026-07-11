@@ -189,6 +189,7 @@ public class AppDbContext : DbContext
             b.Property(e => e.MargenElaboracionPorcentaje).HasColumnName("margen_elaboracion_porcentaje").HasColumnType("numeric(5,2)");
             b.Property(e => e.MargenElaboracionMonto).HasColumnName("margen_elaboracion_monto").HasColumnType("numeric(18,2)");
             b.Property(e => e.Destacado).HasColumnName("destacado").HasDefaultValue(false);
+            b.Property(e => e.EsVentaLibre).HasColumnName("es_venta_libre").HasDefaultValue(false);
             b.Property(e => e.Activo).HasColumnName("activo").HasDefaultValue(false);
             b.Property(e => e.CategoriaId).HasColumnName("categoria_id");
             b.Property(e => e.SubcategoriaId).HasColumnName("subcategoria_id");
@@ -497,6 +498,7 @@ public class AppDbContext : DbContext
             b.Property(e => e.PresentacionId).HasColumnName("presentacion_id");
             b.Property(e => e.PresentacionNombre).HasColumnName("presentacion_nombre").HasMaxLength(120);
             b.Property(e => e.ProductoNombre).HasColumnName("producto_nombre").HasMaxLength(500).IsRequired();
+            b.Property(e => e.NotaLinea).HasColumnName("nota_linea").HasMaxLength(500);
             b.Property(e => e.Cantidad).HasColumnName("cantidad").HasColumnType("numeric(18,4)");
             b.Property(e => e.PrecioUnitarioVenta).HasColumnName("precio_unitario_venta").HasColumnType("numeric(18,2)");
             b.Property(e => e.SubtotalBruto).HasColumnName("subtotal_bruto").HasColumnType("numeric(18,2)");

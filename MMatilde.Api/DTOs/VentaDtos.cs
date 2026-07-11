@@ -9,7 +9,8 @@ public record VentaLineaCreateDto(
     decimal Cantidad,
     decimal? PrecioUnitario,
     decimal? DescuentoPorcentaje = null,
-    decimal? DescuentoMonto = null
+    decimal? DescuentoMonto = null,
+    string? NotaLinea = null
 );
 
 public record VentaCreateDto(
@@ -40,6 +41,7 @@ public record VentaLineaDto(
     int? PresentacionId,
     string? PresentacionNombre,
     string ProductoNombre,
+    string? NotaLinea,
     decimal Cantidad,
     decimal PrecioUnitarioVenta,
     decimal SubtotalBruto,
@@ -112,6 +114,7 @@ public record ProductoVentaBusquedaDto(
     string Nombre,
     string? CodigoMakor,
     bool Activo,
+    bool EsVentaLibre,
     decimal? PrecioVenta,
     string? UnidadVenta,
     decimal? GananciaNetaEstimada,
@@ -127,6 +130,7 @@ public record ProductoVentaBusquedaDto(
 public record ProductoVentaPrecioDto(
     int Id,
     string Nombre,
+    bool EsVentaLibre,
     decimal? PrecioVenta,
     string? UnidadVenta,
     decimal? GananciaNetaEstimada,

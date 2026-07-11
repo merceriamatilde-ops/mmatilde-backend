@@ -6,7 +6,9 @@ public record EstadisticasKpiDto(
     decimal MargenPorcentaje,
     int CantidadVentas,
     decimal TicketPromedio,
-    decimal ItemsVendidos
+    decimal ItemsVendidos,
+    decimal VentasSinCatalogoFacturacion,
+    decimal VentasSinCatalogoItems
 );
 
 public record EstadisticasSerieDiaDto(string Fecha, decimal Facturacion, decimal Ganancia, int Ventas);

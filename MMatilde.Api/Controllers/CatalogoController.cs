@@ -31,7 +31,7 @@ public class CatalogoController : ControllerBase
         var prods = (await _db.Productos
             .Include(p => p.Categoria)
             .Include(p => p.Imagenes)
-            .Where(p => p.Activo)
+            .Where(p => p.Activo && !p.EsVentaLibre)
             .OrderByDescending(p => p.Id)
             .Take(8)
             .ToListAsync())

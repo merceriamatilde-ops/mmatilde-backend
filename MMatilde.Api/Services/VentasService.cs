@@ -58,15 +58,20 @@ public class VentasService
         if (string.IsNullOrWhiteSpace(q) || q.Trim().Length < 2)
             return [];
 
-        var patron = $"%{q.Trim()}%";
+        var term = q.Trim();
+        var patron = $"%{term}%";
+        var buscarVarios = term.Contains("varios", StringComparison.OrdinalIgnoreCase);
+
         var productos = await _db.Productos
             .Include(p => p.Presentaciones)
             .Include(p => p.Variantes)
                 .ThenInclude(v => v.Color)
             .Where(p =>
-                EF.Functions.ILike(p.Nombre, patron) ||
-                (p.NombrePublico != null && EF.Functions.ILike(p.NombrePublico, patron)) ||
-                EF.Functions.ILike(p.CodigoMakor, patron))
+                (p.EsVentaLibre && buscarVarios) ||
+                (!p.EsVentaLibre && (
+                    EF.Functions.ILike(p.Nombre, patron) ||
+                    (p.NombrePublico != null && EF.Functions.ILike(p.NombrePublico, patron)) ||
+                    EF.Functions.ILike(p.CodigoMakor, patron))))
             .OrderByDescending(p => p.Activo)
             .ThenBy(p => p.Nombre)
             .Take(Math.Clamp(limit, 5, 30))
@@ -92,20 +97,57 @@ public class VentasService
                 p.NombrePublico ?? p.Nombre,
                 p.CodigoMakor,
                 p.Activo,
-                mapped.Precio,
+                p.EsVentaLibre,
+                p.EsVentaLibre ? null : mapped.Precio,
                 mapped.UnidadVenta,
-                mapped.GananciaNetaEstimada,
+                p.EsVentaLibre ? null : mapped.GananciaNetaEstimada,
                 p.ModoOrigenEconomico.ToString(),
-                mapped.CostoReferencia,
-                mapped.IvaPorcentaje,
-                mapped.CostoMateriales,
-                mapped.ManoObra,
+                p.EsVentaLibre ? null : mapped.CostoReferencia,
+                p.EsVentaLibre ? null : mapped.IvaPorcentaje,
+                p.EsVentaLibre ? null : mapped.CostoMateriales,
+                p.EsVentaLibre ? null : mapped.ManoObra,
                 MapVariantesVenta(p),
                 presentaciones
             ));
         }
 
         return result;
+    }
+
+    public async Task<ProductoVentaBusquedaDto?> GetProductoVentaLibreAsync()
+    {
+        var p = await _db.Productos
+            .Include(x => x.Presentaciones)
+            .Include(x => x.Variantes)
+                .ThenInclude(v => v.Color)
+            .FirstOrDefaultAsync(x => x.EsVentaLibre);
+
+        if (p == null) return null;
+
+        if (await _pricing.EnsurePresentacionVentaListaAsync(p))
+            await _db.SaveChangesAsync();
+
+        var presentaciones = await MapPresentacionesVenta(p);
+        var defaultPres = ResolvePresentacion(p, null);
+        var mapped = await MapPresentacionPrecio(p, defaultPres);
+
+        return new ProductoVentaBusquedaDto(
+            p.Id,
+            p.NombrePublico ?? p.Nombre,
+            p.CodigoMakor,
+            p.Activo,
+            true,
+            null,
+            mapped.UnidadVenta,
+            null,
+            p.ModoOrigenEconomico.ToString(),
+            null,
+            null,
+            null,
+            null,
+            MapVariantesVenta(p),
+            presentaciones
+        );
     }
 
     public async Task<Dictionary<string, string>> GetMediosNombreMapAsync() =>
@@ -212,6 +254,7 @@ public class VentasService
                 l.PresentacionId,
                 l.PresentacionNombre,
                 l.ProductoNombre,
+                l.NotaLinea,
                 l.Cantidad,
                 l.PrecioUnitarioVenta,
                 l.SubtotalBruto,
@@ -320,6 +363,29 @@ public class VentasService
         }
 
         var pres = ResolvePresentacion(producto, input.PresentacionId);
+
+        if (producto.EsVentaLibre)
+        {
+            if (!input.PrecioUnitario.HasValue || input.PrecioUnitario <= 0)
+                throw new InvalidOperationException("Indicá el precio de venta para \"Varios\".");
+            if (string.IsNullOrWhiteSpace(input.NotaLinea))
+                throw new InvalidOperationException("Indicá qué se vendió en la línea \"Varios\".");
+
+            var precioLibre = input.PrecioUnitario.Value;
+            return new VentaLinea
+            {
+                ProductoId = producto.Id,
+                PresentacionId = pres?.Id,
+                PresentacionNombre = pres?.Nombre,
+                ProductoNombre = producto.NombrePublico ?? producto.Nombre,
+                NotaLinea = input.NotaLinea.Trim(),
+                Cantidad = input.Cantidad,
+                PrecioUnitarioVenta = precioLibre,
+                ModoOrigenEconomico = ModoOrigenEconomico.SIN_COSTO,
+                GananciaNetaEstimada = 0,
+            };
+        }
+
         var mapped = await MapPresentacionPrecio(producto, pres);
 
         var precioUnitario = input.PrecioUnitario ?? mapped.Precio
@@ -436,9 +502,10 @@ public class VentasService
         return new ProductoVentaPrecioDto(
             producto.Id,
             producto.NombrePublico ?? producto.Nombre,
-            mapped.Precio,
+            producto.EsVentaLibre,
+            producto.EsVentaLibre ? null : mapped.Precio,
             mapped.UnidadVenta,
-            ganancia?.GananciaNetaEstimada,
+            producto.EsVentaLibre ? null : ganancia?.GananciaNetaEstimada,
             producto.ModoOrigenEconomico.ToString(),
             ganancia?.Nota,
             ganancia?.CostoReferencia,
