@@ -114,7 +114,87 @@ public static class SeedData
 
         await db.SaveChangesAsync();
 
+        await EnsureColoresAsync(db);
         await EnsureProductoVariosAsync(db);
+        await RecalcularTitulosMakorCortadosAsync(db);
+    }
+
+    /// <summary>Paleta base de colores. Idempotente: no duplica (compara por nombre sin acentos/mayúsculas ni por slug)
+    /// y respeta los que ya estén cargados a mano.</summary>
+    private static async Task EnsureColoresAsync(AppDbContext db)
+    {
+        var paleta = new (string Nombre, string Hex)[]
+        {
+            ("Blanco", "#FFFFFF"), ("Gris Perla", "#C0C5C8"), ("Gris Medio", "#8E9396"),
+            ("Gris Topo", "#66696C"), ("Negro", "#1A1A1A"), ("Celeste Bebé", "#A9D5ED"),
+            ("Celeste Pastel", "#6097CE"), ("Turquesa", "#007AAB"), ("Azul Francia", "#22529A"),
+            ("Rojo", "#E42A25"), ("Bordó", "#641F2B"), ("Amarillo Patito", "#FEF9B6"),
+            ("Amarillo Oro", "#FBA044"), ("Naranja", "#FD5634"), ("Natural", "#FFF8EA"),
+            ("Beige", "#F5CDA8"), ("Habano", "#7B4C38"), ("Marrón Claro", "#773B28"),
+            ("Verde Oscuro", "#1F3628"), ("Verde Militar", "#4B4F3B"), ("Verde Agua", "#C6F4EA"),
+            ("Mostaza", "#E5973A"), ("Violeta", "#52357A"), ("Salmón", "#FFB39E"),
+            ("Rosa Dior", "#F98FB5"), ("Rosa Cristal", "#FDE8F1"), ("Celeste Claro", "#CBEAEF"),
+            ("Yute", "#BBA999"), ("Pedrejón", "#E2CEB4"), ("Arena", "#EFE0CE"),
+            ("Gris Pluma", "#C5BAAD"), ("L. Aceitunado", "#9B8C7A"), ("Verde Secreto", "#96937C"),
+            ("Nuez", "#786C5F"), ("Beige Gamo", "#DEBA9F"), ("Violeta Pastel", "#D0C3EA"),
+            ("Coral", "#FF5E74"), ("A. Indigo", "#324C53"), ("A. Navy", "#151D28"),
+            ("Verde Atlantis", "#42C79E"), ("Maíz", "#FED192"), ("Naranja de Jaffa", "#FF6A39"),
+            ("Ocre Quemado", "#D85237"), ("Petróleo", "#215551"), ("Fresa", "#FFAED2"),
+            ("Teja", "#8A2D3A"), ("Hortensia", "#5E3A60"), ("Turquesa Claro", "#1EC9E8"),
+            ("Rosa Plateado", "#F7B5BA"), ("Sandía", "#FF3B5D"), ("Suela (texturado)", "#A05F1D"),
+            ("Mandarina", "#FF7B39"), ("Rosa Viejo (texturado)", "#8E4964"),
+        };
+
+        var existentes = await db.Colores.Select(c => new { c.Nombre, c.Slug }).ToListAsync();
+        var nombresExistentes = existentes.Select(c => (c.Nombre ?? "").Trim().ToLowerInvariant()).ToHashSet();
+        var slugsExistentes = existentes.Select(c => c.Slug).ToHashSet();
+
+        foreach (var (nombre, hex) in paleta)
+        {
+            var slug = SlugHelper.Slugify(nombre);
+            if (nombresExistentes.Contains(nombre.ToLowerInvariant()) || slugsExistentes.Contains(slug))
+                continue;
+
+            db.Colores.Add(new Color { Nombre = nombre, CodigoHex = hex, Slug = slug });
+            nombresExistentes.Add(nombre.ToLowerInvariant());
+            slugsExistentes.Add(slug);
+        }
+
+        await db.SaveChangesAsync();
+    }
+
+    /// <summary>Repara nombres públicos de productos Makor que quedaron cortados a mitad de palabra
+    /// por el bug viejo del parser de unidades (ej "...CBX 20,5CM" → "...CB"). Idempotente.</summary>
+    private static async Task RecalcularTitulosMakorCortadosAsync(AppDbContext db)
+    {
+        var makor = await db.Proveedores.FirstOrDefaultAsync(p => p.Slug == "makor");
+        if (makor == null) return;
+
+        var candidatos = await db.Productos
+            .Where(p => p.ProveedorId == makor.Id && p.NombrePublico != null && p.NombrePublico != "")
+            .ToListAsync();
+
+        var cambios = 0;
+        foreach (var p in candidatos)
+        {
+            var raw = (p.Nombre ?? "").Trim();
+            var stored = p.NombrePublico!.Trim();
+
+            var cortadoAMitadDePalabra =
+                stored.Length > 0 &&
+                stored.Length < raw.Length &&
+                raw.StartsWith(stored, StringComparison.Ordinal) &&
+                !char.IsWhiteSpace(raw[stored.Length]);
+
+            if (cortadoAMitadDePalabra)
+            {
+                p.NombrePublico = null;
+                cambios++;
+            }
+        }
+
+        if (cambios > 0)
+            await db.SaveChangesAsync();
     }
 
     private static async Task EnsureProductoVariosAsync(AppDbContext db)
