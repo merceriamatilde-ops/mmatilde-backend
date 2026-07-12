@@ -59,7 +59,7 @@ public class CategoriasController : ControllerBase
 
         var query = _db.Productos
             .Include(p => p.Imagenes)
-            .Where(p => p.CategoriaId == cat.Id && p.Activo);
+            .Where(p => p.CategoriaId == cat.Id && p.Activo && !p.EsVentaLibre);
 
         Console.WriteLine($"\n--- GET PRODUCTOS --- SLUG: {slug}, SUB: '{sub}'\n");
 

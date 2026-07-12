@@ -77,7 +77,7 @@ public class CatalogoController : ControllerBase
                 .Include(p => p.Categoria)
                 .Include(p => p.Subcategoria)
                 .Include(p => p.Imagenes)
-                .Where(p => p.Activo && (
+                .Where(p => p.Activo && !p.EsVentaLibre && (
                     EF.Functions.ILike(p.Nombre, patron) ||
                     (p.NombrePublico != null && EF.Functions.ILike(p.NombrePublico, patron)) ||
                     EF.Functions.ILike(p.CodigoMakor, patron) ||

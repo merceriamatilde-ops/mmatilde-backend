@@ -16,7 +16,8 @@ public record ProductoAdminDto(
     DateTime? UltimaSync,
     string ModoOrigenEconomico,
     string ModoPrecio,
-    int? ProveedorId
+    int? ProveedorId,
+    bool EsVentaLibre
 );
 public record ProductoAdminListResponse(List<ProductoAdminDto> Items, int Total, int Page, int PageSize, int TotalPages);
 public record ProductoCatalogoDto(int Id, string Slug, string Nombre, string Categoria, string? ImagenUrl);

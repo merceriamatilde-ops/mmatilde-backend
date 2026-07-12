@@ -149,7 +149,8 @@ public class ProductosController : ControllerBase
                 p.UltimaSync,
                 p.ModoOrigenEconomico.ToString(),
                 p.ModoPrecio.ToString(),
-                p.ProveedorId
+                p.ProveedorId,
+                p.EsVentaLibre
             ));
         }
 
@@ -221,6 +222,9 @@ public class ProductosController : ControllerBase
         var prod = await _db.Productos.FindAsync(id);
         if (prod == null) return NotFound();
 
+        if (prod.EsVentaLibre)
+            return BadRequest(new { message = "El producto de venta libre no puede mostrarse en el catálogo." });
+
         prod.Activo = req.Value;
         prod.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
@@ -246,7 +250,7 @@ public class ProductosController : ControllerBase
     [Authorize(Roles = "ADMIN")]
     public async Task<IActionResult> BulkToggle([FromBody] BulkToggleRequest req)
     {
-        var prod = await _db.Productos.Where(p => req.Ids.Contains(p.Id)).ToListAsync();
+        var prod = await _db.Productos.Where(p => req.Ids.Contains(p.Id) && !p.EsVentaLibre).ToListAsync();
         foreach (var p in prod)
         {
             p.Activo = req.Activo;
@@ -505,6 +509,8 @@ public class ProductosController : ControllerBase
             }
         }
 
+        if (p.EsVentaLibre) p.Activo = false;
+
         await _db.SaveChangesAsync();
         return Ok();
     }
@@ -513,8 +519,13 @@ public class ProductosController : ControllerBase
     [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult<SyncResponse>> SyncProducto(int id)
     {
-        var prod = await _db.Productos.FindAsync(id);
+        var prod = await _db.Productos
+            .Include(p => p.Proveedor)
+            .FirstOrDefaultAsync(p => p.Id == id);
         if (prod == null) return NotFound();
+
+        if (prod.EsVentaLibre || prod.Proveedor?.Slug != "makor")
+            return BadRequest(new { message = "Solo los productos de Makor se pueden sincronizar." });
 
         var result = await _sync.SyncProductoAsync(id);
         if (!result.Success)
@@ -523,12 +534,52 @@ public class ProductosController : ControllerBase
         return result;
     }
 
+    // One-shot: limpia NombrePublico de productos Makor que quedaron cortados a mitad de
+    // palabra por el bug viejo del parser de unidades (ej: "...CBX 20,5CM" -> "...CB").
+    // Solo toca los que son prefijo exacto del nombre real cortando un token; no toca ediciones manuales.
+    [HttpPost("mantenimiento/recalcular-titulos")]
+    [Authorize(Roles = "ADMIN")]
+    public async Task<ActionResult> RecalcularTitulosPublicos()
+    {
+        var makor = await _db.Productos
+            .Where(p => p.ProveedorId == 1 && p.NombrePublico != null && p.NombrePublico != "")
+            .ToListAsync();
+
+        var afectados = new List<object>();
+
+        foreach (var p in makor)
+        {
+            var raw = (p.Nombre ?? "").Trim();
+            var stored = p.NombrePublico!.Trim();
+
+            var cortadoAMitadDePalabra =
+                stored.Length > 0 &&
+                stored.Length < raw.Length &&
+                raw.StartsWith(stored, StringComparison.Ordinal) &&
+                !char.IsWhiteSpace(raw[stored.Length]);
+
+            if (cortadoAMitadDePalabra)
+            {
+                afectados.Add(new { p.Id, p.Nombre, viejo = stored, nuevo = MakorPublicContent.ResolveTitle(p.Nombre!, null) });
+                p.NombrePublico = null;
+            }
+        }
+
+        if (afectados.Count > 0)
+            await _db.SaveChangesAsync();
+
+        return Ok(new { corregidos = afectados.Count, detalle = afectados });
+    }
+
     [HttpDelete("{id}")]
     [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult> Delete(int id)
     {
         var p = await _db.Productos.FindAsync(id);
         if (p == null) return NotFound();
+
+        if (p.EsVentaLibre)
+            return BadRequest(new { message = "El producto de venta libre no se puede eliminar." });
 
         try
         {

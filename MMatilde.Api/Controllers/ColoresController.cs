@@ -27,16 +27,18 @@ public class ColoresController : ControllerBase
     [Authorize(Roles = "ADMIN")]
     public async Task<ActionResult<Color>> Create([FromBody] ColorDto dto)
     {
-        if (await _db.Colores.AnyAsync(c => c.Nombre.ToLower() == dto.Nombre.ToLower()))
+        var nombre = (dto.Nombre ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(nombre))
+            return BadRequest(new { message = "El nombre es obligatorio." });
+
+        if (await _db.Colores.AnyAsync(c => c.Nombre.ToLower() == nombre.ToLower()))
             return BadRequest(new { message = "Ya existe un color con ese nombre." });
 
-        var slug = MMatilde.Api.Helpers.SlugHelper.Slugify(dto.Nombre);
-        
         var color = new Color
         {
-            Nombre = dto.Nombre,
+            Nombre = nombre,
             CodigoHex = dto.CodigoHex,
-            Slug = slug
+            Slug = await GenerarSlugUnicoAsync(nombre, null)
         };
 
         _db.Colores.Add(color);
@@ -71,17 +73,37 @@ public class ColoresController : ControllerBase
         var color = await _db.Colores.FindAsync(id);
         if (color == null) return NotFound();
 
+        var nombre = (dto.Nombre ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(nombre))
+            return BadRequest(new { message = "El nombre es obligatorio." });
+
         // Check if new name exists in another color
-        if (await _db.Colores.AnyAsync(c => c.Id != id && c.Nombre.ToLower() == dto.Nombre.ToLower()))
+        if (await _db.Colores.AnyAsync(c => c.Id != id && c.Nombre.ToLower() == nombre.ToLower()))
             return BadRequest(new { message = "Ya existe otro color con ese nombre." });
 
-        color.Nombre = dto.Nombre;
+        color.Nombre = nombre;
         color.CodigoHex = dto.CodigoHex;
-        color.Slug = MMatilde.Api.Helpers.SlugHelper.Slugify(dto.Nombre);
+        color.Slug = await GenerarSlugUnicoAsync(nombre, id);
 
         await _db.SaveChangesAsync();
 
         return Ok(color);
+    }
+
+    /// <summary>Genera un slug único; si colisiona (dos nombres distintos → mismo slug) agrega sufijo.</summary>
+    private async Task<string> GenerarSlugUnicoAsync(string nombre, int? excludeId)
+    {
+        var baseSlug = MMatilde.Api.Helpers.SlugHelper.Slugify(nombre);
+        if (string.IsNullOrWhiteSpace(baseSlug)) baseSlug = "color";
+
+        var slug = baseSlug;
+        var i = 2;
+        while (await _db.Colores.AnyAsync(c => c.Slug == slug && (excludeId == null || c.Id != excludeId)))
+        {
+            slug = $"{baseSlug}-{i}";
+            i++;
+        }
+        return slug;
     }
 }
 

@@ -16,7 +16,7 @@ public static class UnidadParser
 
     private static readonly (Regex Pattern, Func<Match, UnidadDetectada?> Build)[] Rules =
     [
-        (new Regex(@"x\s*(\d+(?:[.,]\d+)?)\s*kg\b", Rx), m =>
+        (new Regex(@"(?<=\s)x\s*(\d+(?:[.,]\d+)?)\s*kg\b", Rx), m =>
         {
             var n = ParseDecimal(m.Groups[1].Value);
             return n is null ? null : new UnidadDetectada(UnidadMedida.g, n.Value * 1000m, $"{Fmt(n)} kg", true);
@@ -26,12 +26,12 @@ public static class UnidadParser
             var n = ParseDecimal(m.Groups[1].Value);
             return n is null ? null : new UnidadDetectada(UnidadMedida.g, n.Value * 1000m, $"{Fmt(n)} kg", true);
         }),
-        (new Regex(@"x\s*(\d+(?:[.,]\d+)?)\s*(?:g|gr|gramos?)\b", Rx), m =>
+        (new Regex(@"(?<=\s)x\s*(\d+(?:[.,]\d+)?)\s*(?:g|gr|gramos?)\b", Rx), m =>
         {
             var n = ParseDecimal(m.Groups[1].Value);
             return n is null ? null : new UnidadDetectada(UnidadMedida.g, n.Value, $"{Fmt(n)} g", true);
         }),
-        (new Regex(@"x\s*(\d+(?:[.,]\d+)?)\s*(?:m|mt|mts|metro|metros)\b", Rx), m =>
+        (new Regex(@"(?<=\s)x\s*(\d+(?:[.,]\d+)?)\s*(?:m|mt|mts|metro|metros)\b", Rx), m =>
         {
             var n = ParseDecimal(m.Groups[1].Value);
             return n is null ? null : new UnidadDetectada(UnidadMedida.m, n.Value, $"{Fmt(n)} m", true);
@@ -46,29 +46,29 @@ public static class UnidadParser
             var n = ParseDecimal(m.Groups[1].Value);
             return n is null ? null : new UnidadDetectada(UnidadMedida.m, n.Value, $"rollo {Fmt(n)} m", true);
         }),
-        (new Regex(@"x\s*(\d+(?:[.,]\d+)?)\s*cm\b", Rx), m =>
+        (new Regex(@"(?<=\s)x\s*(\d+(?:[.,]\d+)?)\s*cm\b", Rx), m =>
         {
             var n = ParseDecimal(m.Groups[1].Value);
             return n is null ? null : new UnidadDetectada(UnidadMedida.cm, n.Value, $"{Fmt(n)} cm", true);
         }),
-        (new Regex(@"x\s*(\d+(?:[.,]\d+)?)\s*l(?:itros?)?\b", Rx), m =>
+        (new Regex(@"(?<=\s)x\s*(\d+(?:[.,]\d+)?)\s*l(?:itros?)?\b", Rx), m =>
         {
             var n = ParseDecimal(m.Groups[1].Value);
             return n is null ? null : new UnidadDetectada(UnidadMedida.ml, n.Value * 1000m, $"{Fmt(n)} l", true);
         }),
-        (new Regex(@"x\s*(\d+(?:[.,]\d+)?)\s*ml\b", Rx), m =>
+        (new Regex(@"(?<=\s)x\s*(\d+(?:[.,]\d+)?)\s*ml\b", Rx), m =>
         {
             var n = ParseDecimal(m.Groups[1].Value);
             return n is null ? null : new UnidadDetectada(UnidadMedida.ml, n.Value, $"{Fmt(n)} ml", true);
         }),
         (new Regex(@"\bdocena\b", Rx), _ =>
             new UnidadDetectada(UnidadMedida.unidad, 12m, "docena (12 u)", true)),
-        (new Regex(@"x\s*(\d+(?:[.,]\d+)?)\s*un\b", Rx), m =>
+        (new Regex(@"(?<=\s)x\s*(\d+(?:[.,]\d+)?)\s*un\b", Rx), m =>
         {
             var n = ParseDecimal(m.Groups[1].Value);
             return n is null ? null : new UnidadDetectada(UnidadMedida.unidad, n.Value, $"{Fmt(n)} u", true);
         }),
-        (new Regex(@"x\s*(\d+(?:[.,]\d+)?)\s*(?:u(?:n(?:idad(?:es)?)?)?|pzas?|piezas?)\b", Rx), m =>
+        (new Regex(@"(?<=\s)x\s*(\d+(?:[.,]\d+)?)\s*(?:u(?:n(?:idad(?:es)?)?)?|pzas?|piezas?)\b", Rx), m =>
         {
             var n = ParseDecimal(m.Groups[1].Value);
             return n is null ? null : new UnidadDetectada(UnidadMedida.unidad, n.Value, $"{Fmt(n)} u", true);
@@ -78,7 +78,7 @@ public static class UnidadParser
             var n = ParseDecimal(m.Groups[1].Value);
             return n is null ? null : new UnidadDetectada(UnidadMedida.unidad, n.Value, $"{Fmt(n)} u", true);
         }),
-        (new Regex(@"x\s*(\d+)\b", Rx), m =>
+        (new Regex(@"(?<=\s)x\s*(\d+)\b", Rx), m =>
         {
             var n = ParseDecimal(m.Groups[1].Value);
             return n is null ? null : new UnidadDetectada(UnidadMedida.unidad, n.Value, $"x{Fmt(n)}", false);
