@@ -64,6 +64,34 @@ public class MakorScraperService
         return await ParseProductsFromUrl(url);
     }
 
+    /// <summary>
+    /// Obtiene la imagen "banner" propia de una categoría de Makor
+    /// (el encabezado en div.img_title), no la de un producto.
+    /// </summary>
+    public async Task<string?> GetCategoryImageAsync(string categorySlug)
+    {
+        var url = $"{_baseUrl}/{categorySlug}";
+        try
+        {
+            var html = await _httpClient.GetStringAsync(url);
+            var doc = new HtmlDocument();
+            doc.LoadHtml(html);
+
+            var imgNode = doc.DocumentNode.SelectSingleNode("//div[contains(@class,'img_title')]//img");
+            var src = imgNode?.GetAttributeValue("src", null);
+            if (string.IsNullOrEmpty(src)) return null;
+
+            if (!src.StartsWith("http"))
+                src = _baseUrl + "/" + src.TrimStart('/');
+
+            return src;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private async Task<List<MakorProductScraped>> ParseProductsFromUrl(string url, HashSet<string>? visitedUrls = null)
     {
         visitedUrls ??= new HashSet<string>();

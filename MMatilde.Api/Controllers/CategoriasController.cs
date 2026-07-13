@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using MMatilde.Api.Data;
 using MMatilde.Api.DTOs;
 using MMatilde.Api.Helpers;
+using MMatilde.Api.Services;
 
 namespace MMatilde.Api.Controllers;
 
@@ -42,7 +43,8 @@ public class CategoriasController : ControllerBase
                 x.Cat.Nombre,
                 x.Cat.Slug,
                 x.Cat.Icono,
-                x.Count
+                x.Count,
+                x.Cat.Imagen
             ))
             .ToListAsync();
 
@@ -88,7 +90,8 @@ public class CategoriasController : ControllerBase
             cat.Slug,
             cat.Icono,
             subs,
-            prods
+            prods,
+            cat.Imagen
         );
     }
 
@@ -111,11 +114,34 @@ public class CategoriasController : ControllerBase
                     s.Slug,
                     s.EsMakor,
                     s.Productos.Count
-                )).ToList()
+                )).ToList(),
+                c.Imagen,
+                c.Icono
             ))
             .ToListAsync();
 
         return result;
+    }
+
+    [HttpPut("orden")]
+    [Authorize(Roles = "ADMIN")]
+    public async Task<ActionResult> ReordenarCategorias([FromBody] CategoriaReorderDto dto)
+    {
+        if (dto.Ids == null || dto.Ids.Count == 0)
+            return BadRequest(new { message = "No se recibió ningún orden." });
+
+        var cats = await _db.Categorias
+            .Where(c => dto.Ids.Contains(c.Id))
+            .ToListAsync();
+
+        for (int i = 0; i < dto.Ids.Count; i++)
+        {
+            var cat = cats.FirstOrDefault(c => c.Id == dto.Ids[i]);
+            if (cat != null) cat.Orden = i;
+        }
+
+        await _db.SaveChangesAsync();
+        return Ok();
     }
 
     [HttpPost]
@@ -154,6 +180,43 @@ public class CategoriasController : ControllerBase
         
         await _db.SaveChangesAsync();
         return Ok();
+    }
+
+    [HttpPut("{id}/imagen")]
+    [Authorize(Roles = "ADMIN")]
+    public async Task<ActionResult> UpdateImagen(int id, [FromBody] CategoriaImagenDto dto)
+    {
+        var cat = await _db.Categorias.FindAsync(id);
+        if (cat == null) return NotFound();
+
+        cat.Imagen = string.IsNullOrWhiteSpace(dto.Imagen) ? null : dto.Imagen.Trim();
+        await _db.SaveChangesAsync();
+        return Ok(new { imagen = cat.Imagen });
+    }
+
+    // Trae el banner/encabezado propio de la categoría desde Makor (no una foto de producto).
+    [HttpPost("{id}/sync-imagen")]
+    [Authorize(Roles = "ADMIN")]
+    public async Task<ActionResult> SyncImagen(int id, [FromServices] MakorScraperService scraper)
+    {
+        var cat = await _db.Categorias.FindAsync(id);
+        if (cat == null) return NotFound();
+
+        if (!cat.EsMakor)
+            return BadRequest(new { message = "Solo se puede traer imagen de Makor en categorías sincronizadas." });
+
+        var makorUser = await _db.ConfiguracionSitio.FirstOrDefaultAsync(c => c.Clave == "makor_user");
+        var makorPass = await _db.ConfiguracionSitio.FirstOrDefaultAsync(c => c.Clave == "makor_pass");
+        await scraper.LoginAsync(makorUser?.Valor ?? "12906", makorPass?.Valor ?? "cacere");
+
+        var imagen = await scraper.GetCategoryImageAsync(cat.Slug);
+
+        if (string.IsNullOrEmpty(imagen))
+            return BadRequest(new { message = "No se encontró el banner de esta categoría en Makor." });
+
+        cat.Imagen = imagen;
+        await _db.SaveChangesAsync();
+        return Ok(new { imagen });
     }
 
     [HttpDelete("{id}")]

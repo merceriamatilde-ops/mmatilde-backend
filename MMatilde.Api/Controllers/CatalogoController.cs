@@ -18,14 +18,26 @@ public class CatalogoController : ControllerBase
         _db = db;
     }
 
+    private async Task<int> GetConfigIntAsync(string clave, int fallback)
+    {
+        var cfg = await _db.ConfiguracionSitio.FirstOrDefaultAsync(c => c.Clave == clave);
+        return cfg != null && int.TryParse(cfg.Valor, out var v) && v > 0 ? v : fallback;
+    }
+
     [HttpGet("home")]
     public async Task<ActionResult<HomeDataDto>> GetHomeData()
     {
+        // La cantidad visible se controla por config (mobile/desktop). Traemos el máximo de ambos
+        // y el front recorta por breakpoint.
+        var maxDesktop = await GetConfigIntAsync("home_max_categorias_desktop", 6);
+        var maxMobile = await GetConfigIntAsync("home_max_categorias_mobile", 4);
+        var take = Math.Clamp(Math.Max(maxDesktop, maxMobile), 1, 24);
+
         var cats = await _db.Categorias
             .Where(c => c.Activo && c.Productos.Any(p => p.Activo))
             .OrderBy(c => c.Orden)
-            .Take(8)
-            .Select(c => new CategoriaCardDto(c.Nombre, c.Icono ?? "", c.Slug, c.Productos.Count(p => p.Activo)))
+            .Take(take)
+            .Select(c => new CategoriaCardDto(c.Nombre, c.Icono ?? "", c.Slug, c.Productos.Count(p => p.Activo), c.Imagen))
             .ToListAsync();
 
         var prods = (await _db.Productos
@@ -53,7 +65,7 @@ public class CatalogoController : ControllerBase
             ))
             .ToListAsync();
 
-        return new HomeDataDto(cats, prods, colecciones);
+        return new HomeDataDto(cats, prods, colecciones, maxMobile, maxDesktop);
     }
 
     [HttpGet("buscar")]
