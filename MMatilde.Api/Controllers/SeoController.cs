@@ -38,6 +38,7 @@ public class SeoController : ControllerBase
             AddUrl(writer, $"{baseUrl}/", "daily", "1.0");
             AddUrl(writer, $"{baseUrl}/categorias", "weekly", "0.8");
             AddUrl(writer, $"{baseUrl}/buscar", "weekly", "0.8");
+            AddUrl(writer, $"{baseUrl}/contacto", "monthly", "0.7");
 
             // Categorías
             var categorias = await _db.Categorias.Where(c => c.Activo).ToListAsync();
