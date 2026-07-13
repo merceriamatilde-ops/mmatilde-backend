@@ -272,6 +272,71 @@ public class ProductosController : ControllerBase
         return Ok(new { success = true, count });
     }
 
+    // Productos que tienen variantes, para el "Copiar variantes de..." del modal.
+    [HttpGet("con-variantes")]
+    [Authorize]
+    [AuthorizeModule("productos")]
+    public async Task<ActionResult<List<ProductoConVariantesDto>>> GetConVariantes(
+        [FromQuery] string? q,
+        [FromQuery] int? excluirId,
+        [FromQuery] int limit = 10)
+    {
+        var query = _db.Productos
+            .Where(p => p.Variantes.Any())
+            .AsQueryable();
+
+        if (excluirId.HasValue)
+            query = query.Where(p => p.Id != excluirId.Value);
+
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            q = q.Trim();
+            query = query.Where(p =>
+                EF.Functions.ILike(p.Nombre, $"%{q}%") ||
+                (p.NombrePublico != null && EF.Functions.ILike(p.NombrePublico, $"%{q}%")) ||
+                EF.Functions.ILike(p.CodigoMakor, $"%{q}%"));
+        }
+
+        var rows = await query
+            .OrderByDescending(p => p.Id)
+            .Take(Math.Clamp(limit, 1, 50))
+            .Select(p => new { Producto = p, Count = p.Variantes.Count })
+            .ToListAsync();
+
+        return rows
+            .Select(r => new ProductoConVariantesDto(
+                r.Producto.Id,
+                ProductoDisplay.NombrePublico(r.Producto),
+                r.Producto.CodigoMakor,
+                r.Count))
+            .ToList();
+    }
+
+    // Variantes limpias de un producto, para copiar a otro.
+    [HttpGet("{id}/variantes")]
+    [Authorize]
+    [AuthorizeModule("productos")]
+    public async Task<ActionResult<List<VarianteCopiaDto>>> GetVariantes(int id)
+    {
+        var existe = await _db.Productos.AnyAsync(p => p.Id == id);
+        if (!existe) return NotFound();
+
+        var variantes = await _db.ProductoVariantes
+            .Where(v => v.ProductoId == id)
+            .OrderBy(v => v.Orden)
+            .Select(v => new VarianteCopiaDto(
+                v.ColorId,
+                v.Color != null ? v.Color.Nombre : null,
+                v.Talle,
+                v.Medida,
+                v.CodigoArticulo,
+                v.Activo,
+                v.Orden))
+            .ToListAsync();
+
+        return variantes;
+    }
+
     [HttpGet("admin/{id}")]
     [Authorize]
     [AuthorizeModule("productos")]
