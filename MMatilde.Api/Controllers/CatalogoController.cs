@@ -40,14 +40,41 @@ public class CatalogoController : ControllerBase
             .Select(c => new CategoriaCardDto(c.Nombre, c.Icono ?? "", c.Slug, c.Productos.Count(p => p.Activo), c.Imagen))
             .ToListAsync();
 
-        var prods = (await _db.Productos
+        // "Te puede interesar": más vendidos primero; si faltan, se rellena con productos random.
+        // Siempre activos y sin venta libre.
+        var takeProds = Math.Clamp(await GetConfigIntAsync("home_max_destacados", 12), 1, 60);
+
+        var masVendidosIds = await _db.VentaLineas
+            .Where(l => l.ProductoId != null && l.Producto != null && l.Producto.Activo && !l.Producto.EsVentaLibre)
+            .GroupBy(l => l.ProductoId!.Value)
+            .Select(g => new { Id = g.Key, Total = g.Sum(x => x.Cantidad) })
+            .OrderByDescending(x => x.Total)
+            .Take(takeProds)
+            .Select(x => x.Id)
+            .ToListAsync();
+
+        var faltan = takeProds - masVendidosIds.Count;
+        var randomIds = faltan > 0
+            ? await _db.Productos
+                .Where(p => p.Activo && !p.EsVentaLibre && !masVendidosIds.Contains(p.Id))
+                .OrderBy(p => EF.Functions.Random())
+                .Take(faltan)
+                .Select(p => p.Id)
+                .ToListAsync()
+            : new List<int>();
+
+        var ordenIds = masVendidosIds.Concat(randomIds).ToList();
+
+        var prodEntities = await _db.Productos
             .Include(p => p.Categoria)
             .Include(p => p.Imagenes)
-            .Where(p => p.Activo && !p.EsVentaLibre)
-            .OrderByDescending(p => p.Id)
-            .Take(8)
-            .ToListAsync())
-            .Select(p => ProductoDisplay.ToCatalogoDto(p))
+            .Where(p => ordenIds.Contains(p.Id))
+            .ToListAsync();
+
+        var prods = ordenIds
+            .Select(id => prodEntities.FirstOrDefault(p => p.Id == id))
+            .Where(p => p != null)
+            .Select(p => ProductoDisplay.ToCatalogoDto(p!))
             .ToList();
 
         var colecciones = await _db.Tags
