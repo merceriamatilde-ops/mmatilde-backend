@@ -47,7 +47,7 @@ public class SeoController : ControllerBase
             }
 
             // Productos
-            var productos = await _db.Productos.Where(p => p.Activo).ToListAsync();
+            var productos = await _db.Productos.Where(p => p.Activo && !p.EsVentaLibre).ToListAsync();
             foreach (var prod in productos)
             {
                 AddUrl(writer, $"{baseUrl}/producto/{prod.Slug}", "weekly", "0.7");
