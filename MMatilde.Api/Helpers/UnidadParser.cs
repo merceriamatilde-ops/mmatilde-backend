@@ -110,16 +110,40 @@ public static class UnidadParser
         return best;
     }
 
+    /// <summary>Fallback cuando el título no trae medida: 1 unidad. Permite que la fórmula calcule igual.</summary>
+    public static UnidadDetectada DefaultUnidad { get; } =
+        new(UnidadMedida.unidad, 1m, "1 u", false);
+
+    public static UnidadDetectada ParseOrDefault(string? nombre) =>
+        TryParse(nombre) ?? DefaultUnidad;
+
     public static bool TryApplyTo(Producto producto, string? nombre)
     {
         var detected = TryParse(nombre);
         if (detected == null) return false;
 
+        Apply(producto, detected);
+        return true;
+    }
+
+    /// <summary>
+    /// Detecta del título; si no hay nada, pone unidad base = Unidad y cantidad = 1.
+    /// Devuelve true si se aplicó el fallback (no había match en el título).
+    /// </summary>
+    public static bool ApplyDetectedOrDefault(Producto producto, string? nombre)
+    {
+        var detected = TryParse(nombre);
+        var usedDefault = detected == null;
+        Apply(producto, detected ?? DefaultUnidad);
+        return usedDefault;
+    }
+
+    private static void Apply(Producto producto, UnidadDetectada detected)
+    {
         producto.UnidadBase = detected.UnidadBase;
         producto.CantidadUnidadCompra = detected.CantidadUnidadCompra;
         producto.EtiquetaUnidadCompra = detected.Etiqueta;
         producto.UnidadCompraAutoDetectada = true;
-        return true;
     }
 
     public static string StripUnidadSufijo(string? nombre)

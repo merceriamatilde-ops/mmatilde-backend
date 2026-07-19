@@ -128,8 +128,9 @@ public class ProductosController : ControllerBase
         var items = new List<ProductoAdminDto>(products.Count);
         foreach (var p in products)
         {
-            if (p.UnidadCompraAutoDetectada)
-                UnidadParser.TryApplyTo(p, p.Nombre);
+            if (p.UnidadBase == null || !p.CantidadUnidadCompra.HasValue || p.CantidadUnidadCompra <= 0 ||
+                p.UnidadCompraAutoDetectada)
+                UnidadParser.ApplyDetectedOrDefault(p, p.Nombre);
             _pricing.EnsurePresentacionVentaDefault(p);
 
             var venta = await _pricing.ResolverPrecioVentaDefaultAsync(p);

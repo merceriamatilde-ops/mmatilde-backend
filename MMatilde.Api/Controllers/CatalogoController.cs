@@ -168,20 +168,21 @@ public class CatalogoController : ControllerBase
 
         if (tag == null) return NotFound();
 
-        var productosBase = _db.ProductoTags
-            .Where(pt => pt.TagId == tag.Id && pt.Producto.Activo)
-            .Select(pt => pt.Producto);
+        var productosBase = _db.Productos
+            .Where(p => p.Activo && p.Tags.Any(pt => pt.TagId == tag.Id));
 
-        var categorias = await productosBase
+        var categorias = (await productosBase
             .Where(p => p.Categoria != null)
-            .GroupBy(p => new { p.CategoriaId, Nombre = p.Categoria!.Nombre, Slug = p.Categoria!.Slug })
+            .Select(p => new { p.CategoriaId, Nombre = p.Categoria!.Nombre, Slug = p.Categoria!.Slug })
+            .ToListAsync())
+            .GroupBy(p => new { p.CategoriaId, p.Nombre, p.Slug })
             .Select(g => new ColeccionCategoriaFiltroDto(
                 g.Key.CategoriaId,
                 g.Key.Nombre,
                 g.Key.Slug,
                 g.Count()))
             .OrderBy(c => c.Nombre)
-            .ToListAsync();
+            .ToList();
 
         var productosQuery = productosBase;
         if (!string.IsNullOrWhiteSpace(categoria))

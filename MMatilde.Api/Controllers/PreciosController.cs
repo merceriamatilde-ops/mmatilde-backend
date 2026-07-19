@@ -135,11 +135,23 @@ public class PreciosController : ControllerBase
         if (prod == null) return NotFound();
 
         var changed = false;
-        if (prod.UnidadCompraAutoDetectada && UnidadParser.TryApplyTo(prod, prod.Nombre))
-            changed = true;
+        // Re-parse si era auto: el título puede haber ganado un match real (upgrade desde Unidad×1).
+        if (prod.UnidadCompraAutoDetectada && prod.UnidadBase != null)
+        {
+            var prev = (prod.UnidadBase, prod.CantidadUnidadCompra, prod.EtiquetaUnidadCompra);
+            UnidadParser.ApplyDetectedOrDefault(prod, prod.Nombre);
+            if ((prod.UnidadBase, prod.CantidadUnidadCompra, prod.EtiquetaUnidadCompra) != prev)
+                changed = true;
+        }
 
+        // Si falta unidad, Ensure aplica Unidad×1 y recalcula precios.
         if (await _pricing.EnsurePresentacionVentaListaAsync(prod))
             changed = true;
+        else if (changed && prod.ModoPrecio != ModoPrecio.PRECIO_FIJO)
+        {
+            await _pricing.RecalcularPresentacionesAsync(prod);
+            changed = true;
+        }
 
         if (changed)
         {
@@ -280,8 +292,8 @@ public class PreciosController : ControllerBase
         var prod = await _db.Productos.FindAsync(id);
         if (prod == null) return NotFound();
 
-        var detected = UnidadParser.TryParse(prod.Nombre);
-        if (detected == null) return NotFound(new { message = "No se detectó unidad en el título." });
+        // Si el título no trae medida, sugerimos Unidad × 1 (mismo default que el sync).
+        var detected = UnidadParser.ParseOrDefault(prod.Nombre);
 
         return new UnidadSugeridaDto(
             detected.UnidadBase.ToString(),

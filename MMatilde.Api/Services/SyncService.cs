@@ -373,7 +373,7 @@ public class SyncService
     }
 
     private static void AplicarUnidadDetectada(Producto prod, string nombre) =>
-        UnidadParser.TryApplyTo(prod, nombre);
+        UnidadParser.ApplyDetectedOrDefault(prod, nombre);
 
     private string NormalizeName(string text)
     {

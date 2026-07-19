@@ -348,7 +348,19 @@ public class PricingService
 
     public async Task<bool> EnsurePresentacionVentaListaAsync(Producto producto)
     {
-        if (!EnsurePresentacionVentaDefault(producto))
+        var changed = false;
+
+        // Productos viejos sin unidad: default Unidad × 1 para poder calcular costo/margen.
+        if (producto.UnidadBase == null || !producto.CantidadUnidadCompra.HasValue || producto.CantidadUnidadCompra <= 0)
+        {
+            UnidadParser.ApplyDetectedOrDefault(producto, producto.Nombre);
+            changed = true;
+        }
+
+        if (EnsurePresentacionVentaDefault(producto))
+            changed = true;
+
+        if (!changed)
             return false;
 
         if (producto.ModoPrecio == ModoPrecio.PRECIO_FIJO)
