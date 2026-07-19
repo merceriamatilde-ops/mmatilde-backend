@@ -140,6 +140,7 @@ public class ProductosController : ControllerBase
                 p.Nombre,
                 p.NombrePublico,
                 ProductoDisplay.NombrePublico(p),
+                p.Slug,
                 p.Categoria != null ? (p.Subcategoria != null ? p.Categoria.Nombre + " > " + p.Subcategoria.Nombre : p.Categoria.Nombre) : "",
                 p.PrecioMayorista,
                 p.PrecioMinorista,

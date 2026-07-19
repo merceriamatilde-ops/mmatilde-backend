@@ -6,6 +6,7 @@ public record ProductoAdminDto(
     string Nombre,
     string? NombrePublico,
     string? NombreCatalogo,
+    string Slug,
     string Categoria,
     decimal? PrecioMayorista,
     decimal? PrecioMinorista,

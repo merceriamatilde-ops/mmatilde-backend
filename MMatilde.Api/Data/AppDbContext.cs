@@ -31,6 +31,7 @@ public class AppDbContext : DbContext
     public DbSet<VentaLinea> VentaLineas { get; set; }
     public DbSet<MedioPago> MediosPago { get; set; }
     public DbSet<TurnoVentaConfig> TurnosVenta { get; set; }
+    public DbSet<Banner> Banners { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -560,6 +561,40 @@ public class AppDbContext : DbContext
             b.Property(e => e.HoraDesde).HasColumnName("hora_desde");
             b.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             b.Property(e => e.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
+        });
+
+        modelBuilder.Entity<Banner>(b =>
+        {
+            b.ToTable("banners");
+            b.HasKey(e => e.Id);
+            b.Property(e => e.Id).HasColumnName("id");
+            b.Property(e => e.Titulo).HasColumnName("titulo").HasMaxLength(200).IsRequired();
+            b.Property(e => e.ImagenDesktopUrl).HasColumnName("imagen_desktop_url").HasMaxLength(1000).IsRequired();
+            b.Property(e => e.ImagenMobileUrl).HasColumnName("imagen_mobile_url").HasMaxLength(1000);
+            b.Property(e => e.LinkTipo).HasColumnName("link_tipo").HasConversion<string>().HasMaxLength(20).HasDefaultValue(BannerLinkTipo.Ninguno);
+            b.Property(e => e.LinkCategoriaId).HasColumnName("link_categoria_id");
+            b.Property(e => e.LinkTagId).HasColumnName("link_tag_id");
+            b.Property(e => e.LinkUrl).HasColumnName("link_url").HasMaxLength(1000);
+            b.Property(e => e.Ubicacion).HasColumnName("ubicacion").HasMaxLength(50).HasDefaultValue("home");
+            b.Property(e => e.Orden).HasColumnName("orden").HasDefaultValue(0);
+            b.Property(e => e.Activo).HasColumnName("activo").HasDefaultValue(true);
+            b.Property(e => e.AbreEnNuevaPestana).HasColumnName("abre_en_nueva_pestana").HasDefaultValue(false);
+            b.Property(e => e.FechaDesde).HasColumnName("fecha_desde");
+            b.Property(e => e.FechaHasta).HasColumnName("fecha_hasta");
+            b.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            b.Property(e => e.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
+
+            b.HasIndex(e => new { e.Ubicacion, e.Orden });
+
+            b.HasOne(e => e.LinkCategoria)
+             .WithMany()
+             .HasForeignKey(e => e.LinkCategoriaId)
+             .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasOne(e => e.LinkTag)
+             .WithMany()
+             .HasForeignKey(e => e.LinkTagId)
+             .OnDelete(DeleteBehavior.SetNull);
         });
     }
 }

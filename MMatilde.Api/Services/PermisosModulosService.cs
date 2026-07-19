@@ -24,6 +24,7 @@ public class PermisosModulosService
         new("ventas", "Ventas", false),
         new("productos", "Productos", false),
         new("categorias", "Categorías", false),
+        new("banners", "Banners", false),
         new("tags", "Tags", false),
         new("colores", "Colores", false),
         new("precios", "Precios", false),
