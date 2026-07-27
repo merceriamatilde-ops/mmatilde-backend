@@ -77,18 +77,19 @@ jobs:
           set -euo pipefail
           CONN=$(python3 -c "import json; print(json.load(open('/etc/mmatilde/appsettings.json'))['ConnectionStrings']['DefaultConnection'])")
           psql "$CONN" -v ON_ERROR_STOP=1 <<'SQL'
+          -- Column is "EsMakor" (PascalCase from EF), not es_makor
           UPDATE productos p
           SET subcategoria_id = NULL, updated_at = NOW()
           FROM subcategorias s
           WHERE p.subcategoria_id = s.id
-            AND s.es_makor = true
+            AND s."EsMakor" = true
             AND (
               s.slug ~ '-\d+$'
               OR s.slug = (SELECT c.slug FROM categorias c WHERE c.id = s.categoria_id)
             );
 
           DELETE FROM subcategorias s
-          WHERE s.es_makor = true
+          WHERE s."EsMakor" = true
             AND (
               s.slug ~ '-\d+$'
               OR s.slug = (SELECT c.slug FROM categorias c WHERE c.id = s.categoria_id)
