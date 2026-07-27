@@ -65,9 +65,24 @@ jobs:
           SQL
           echo "Database wiped (seed runs on API restart)."
 
-    # One-time: fix fake Makor subcategories (product slugs mistaken as subs)
+    # Restart BEFORE optional SQL steps so a failed cleanup never leaves the old process running.
+    # Program.cs also runs CleanupFakeMakorSubcategoriasAsync on boot.
+    - name: Restart Systemd Service
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USERNAME }}
+        key: ${{ secrets.VPS_SSH_KEY }}
+        port: ${{ secrets.VPS_PORT }}
+        script: |
+          sudo systemctl restart mmatilde-api.service
+          sleep 5
+          sudo systemctl is-active mmatilde-api.service
+
+    # Belt-and-suspenders SQL heal (startup cleanup already ran on restart above)
     - name: Cleanup fake Makor subcategories
       if: contains(github.event.head_commit.message, '[cleanup-fake-subs]')
+      continue-on-error: true
       uses: appleboy/ssh-action@master
       with:
         host: ${{ secrets.VPS_HOST }}
@@ -78,8 +93,6 @@ jobs:
           set -euo pipefail
           CONN=$(python3 -c "import json; print(json.load(open('/etc/mmatilde/appsettings.json'))['ConnectionStrings']['DefaultConnection'])")
           psql "$CONN" -v ON_ERROR_STOP=1 <<'SQL'
-          -- Fake patterns don't need "EsMakor" (may be false from migration default).
-          -- Column "EsMakor" is PascalCase from EF.
           UPDATE productos p
           SET subcategoria_id = NULL, updated_at = NOW()
           FROM subcategorias s
@@ -100,16 +113,6 @@ jobs:
             );
           SQL
           echo "Fake Makor subcategories cleaned."
-
-    - name: Restart Systemd Service
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.VPS_HOST }}
-        username: ${{ secrets.VPS_USERNAME }}
-        key: ${{ secrets.VPS_SSH_KEY }}
-        port: ${{ secrets.VPS_PORT }}
-        script: |
-          sudo systemctl restart mmatilde-api.service
 
     # One-shot: sync all Makor categories after deploy (mint ADMIN JWT on VPS)
     - name: Full Makor sync
