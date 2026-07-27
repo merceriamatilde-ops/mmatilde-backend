@@ -185,6 +185,26 @@ using (var scope = app.Services.CreateScope())
     var services = scope.ServiceProvider;
     var config = services.GetRequiredService<IConfiguration>();
     await SeedData.Initialize(services, config);
+
+    // Heal fake Makor subs (product slugs / parent-slug duplicates) on every boot.
+    try
+    {
+        var sync = services.GetRequiredService<SyncService>();
+        var cleaned = await sync.CleanupFakeMakorSubcategoriasAsync();
+        if (cleaned.SubcategoriasEliminadas > 0)
+        {
+            var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger("StartupCleanup");
+            logger.LogInformation(
+                "Fake Makor subs cleaned: {Subs} removed, {Prods} products detached",
+                cleaned.SubcategoriasEliminadas,
+                cleaned.ProductosDesvinculados);
+        }
+    }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger("StartupCleanup");
+        logger.LogError(ex, "Startup fake-sub cleanup failed");
+    }
 }
 
 app.Run();

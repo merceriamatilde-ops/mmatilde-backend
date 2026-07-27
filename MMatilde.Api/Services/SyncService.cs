@@ -120,7 +120,7 @@ public class SyncService
                             subcat = allSubcategories.FirstOrDefault(s => s.Slug == subSlug && s.CategoriaId == cat.Id);
                             if (subcat == null)
                             {
-                                subcat = new Subcategoria { Nombre = subName, Slug = subSlug, CategoriaId = cat.Id };
+                                subcat = new Subcategoria { Nombre = subName, Slug = subSlug, CategoriaId = cat.Id, EsMakor = true };
                                 _db.Subcategorias.Add(subcat);
                                 await _db.SaveChangesAsync();
                                 allSubcategories.Add(subcat);
@@ -301,7 +301,7 @@ public class SyncService
             subcat = allSubcategories.FirstOrDefault(s => s.Slug == subSlug && s.CategoriaId == cat.Id);
             if (subcat == null)
             {
-                subcat = new Subcategoria { Nombre = subName, Slug = subSlug, CategoriaId = cat.Id };
+                subcat = new Subcategoria { Nombre = subName, Slug = subSlug, CategoriaId = cat.Id, EsMakor = true };
                 _db.Subcategorias.Add(subcat);
                 await _db.SaveChangesAsync();
                 allSubcategories.Add(subcat);
@@ -400,13 +400,14 @@ public class SyncService
     /// </summary>
     public async Task<CleanupFakeSubsResult> CleanupFakeMakorSubcategoriasAsync()
     {
-        var makorSubs = await _db.Subcategorias
+        // Product-slug / parent-slug fakes are always wrong — don't require EsMakor
+        // (migration defaulted EsMakor=false; some rows may still be false).
+        var allSubs = await _db.Subcategorias
             .Include(s => s.Productos)
             .Include(s => s.Categoria)
-            .Where(s => s.EsMakor)
             .ToListAsync();
 
-        var fakes = makorSubs.Where(s =>
+        var fakes = allSubs.Where(s =>
             LooksLikeMakorProductSlug(s.Slug) ||
             (s.Categoria != null &&
              string.Equals(s.Slug, s.Categoria.Slug, StringComparison.OrdinalIgnoreCase))
@@ -424,8 +425,8 @@ public class SyncService
             _db.Subcategorias.Remove(fake);
         }
 
-        var empties = makorSubs
-            .Where(s => !fakes.Contains(s) && s.Productos.Count == 0)
+        var empties = allSubs
+            .Where(s => s.EsMakor && !fakes.Contains(s) && s.Productos.Count == 0)
             .ToList();
         _db.Subcategorias.RemoveRange(empties);
 

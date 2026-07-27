@@ -8,6 +8,7 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 200
 
     steps:
     - name: Checkout Code
@@ -77,23 +78,25 @@ jobs:
           set -euo pipefail
           CONN=$(python3 -c "import json; print(json.load(open('/etc/mmatilde/appsettings.json'))['ConnectionStrings']['DefaultConnection'])")
           psql "$CONN" -v ON_ERROR_STOP=1 <<'SQL'
-          -- Column is "EsMakor" (PascalCase from EF), not es_makor
+          -- Fake patterns don't need "EsMakor" (may be false from migration default).
+          -- Column "EsMakor" is PascalCase from EF.
           UPDATE productos p
           SET subcategoria_id = NULL, updated_at = NOW()
           FROM subcategorias s
           WHERE p.subcategoria_id = s.id
-            AND s."EsMakor" = true
             AND (
               s.slug ~ '-\d+$'
               OR s.slug = (SELECT c.slug FROM categorias c WHERE c.id = s.categoria_id)
             );
 
           DELETE FROM subcategorias s
-          WHERE s."EsMakor" = true
-            AND (
+          WHERE (
               s.slug ~ '-\d+$'
               OR s.slug = (SELECT c.slug FROM categorias c WHERE c.id = s.categoria_id)
-              OR NOT EXISTS (SELECT 1 FROM productos p WHERE p.subcategoria_id = s.id)
+            )
+            OR (
+              s."EsMakor" = true
+              AND NOT EXISTS (SELECT 1 FROM productos p WHERE p.subcategoria_id = s.id)
             );
           SQL
           echo "Fake Makor subcategories cleaned."
@@ -107,3 +110,71 @@ jobs:
         port: ${{ secrets.VPS_PORT }}
         script: |
           sudo systemctl restart mmatilde-api.service
+
+    # One-shot: sync all Makor categories after deploy (mint ADMIN JWT on VPS)
+    - name: Full Makor sync
+      if: contains(github.event.head_commit.message, '[full-makor-sync]')
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USERNAME }}
+        key: ${{ secrets.VPS_SSH_KEY }}
+        port: ${{ secrets.VPS_PORT }}
+        command_timeout: 180m
+        script: |
+          set -euo pipefail
+          API="${API_BASE:-https://api.merceriamatilde.com}"
+          echo "Waiting for API..."
+          for i in $(seq 1 60); do
+            if curl -fsS "$API/api/catalogo/home" >/dev/null 2>&1; then
+              echo "API up"
+              break
+            fi
+            sleep 2
+            if [ "$i" -eq 60 ]; then echo "API did not become ready"; exit 1; fi
+          done
+
+          TOKEN=$(python3 <<'PY'
+          import json, time, hmac, hashlib, base64
+
+          def b64url(data: bytes) -> str:
+              return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
+
+          cfg = json.load(open("/etc/mmatilde/appsettings.json"))
+          key = cfg["Jwt"]["Key"].encode()
+          iss = cfg["Jwt"]["Issuer"]
+          aud = cfg["Jwt"]["Audience"]
+          now = int(time.time())
+          header = b64url(json.dumps({"alg": "HS256", "typ": "JWT"}, separators=(",", ":")).encode())
+          payload = b64url(json.dumps({
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier": "1",
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress": "deploy@mmatilde.local",
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name": "Deploy",
+              "http://schemas.microsoft.com/ws/2008/06/identity/claims/role": "ADMIN",
+              "iss": iss,
+              "aud": aud,
+              "nbf": now,
+              "exp": now + 6 * 3600,
+              "iat": now,
+          }, separators=(",", ":")).encode())
+          sig = hmac.new(key, f"{header}.{payload}".encode(), hashlib.sha256).digest()
+          print(f"{header}.{payload}.{b64url(sig)}")
+          PY
+          )
+
+          echo "Cleanup via API..."
+          curl -fsS -X POST "$API/api/sync/cleanup-fake-subcategorias" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json"
+          echo
+
+          CONN=$(python3 -c "import json; print(json.load(open('/etc/mmatilde/appsettings.json'))['ConnectionStrings']['DefaultConnection'])")
+          TERMS_JSON=$(psql "$CONN" -Atc "SELECT COALESCE(json_agg(slug ORDER BY slug), '[]'::json) FROM categorias")
+          echo "Syncing categories: $TERMS_JSON"
+
+          curl -fsS -X POST "$API/api/sync" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"terms\": $TERMS_JSON}"
+          echo
+          echo "Full Makor sync finished."
