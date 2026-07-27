@@ -64,6 +64,39 @@ jobs:
           SQL
           echo "Database wiped (seed runs on API restart)."
 
+    # One-time: fix fake Makor subcategories (product slugs mistaken as subs)
+    - name: Cleanup fake Makor subcategories
+      if: contains(github.event.head_commit.message, '[cleanup-fake-subs]')
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USERNAME }}
+        key: ${{ secrets.VPS_SSH_KEY }}
+        port: ${{ secrets.VPS_PORT }}
+        script: |
+          set -euo pipefail
+          CONN=$(python3 -c "import json; print(json.load(open('/etc/mmatilde/appsettings.json'))['ConnectionStrings']['DefaultConnection'])")
+          psql "$CONN" -v ON_ERROR_STOP=1 <<'SQL'
+          UPDATE productos p
+          SET subcategoria_id = NULL, updated_at = NOW()
+          FROM subcategorias s
+          WHERE p.subcategoria_id = s.id
+            AND s.es_makor = true
+            AND (
+              s.slug ~ '-\d+$'
+              OR s.slug = (SELECT c.slug FROM categorias c WHERE c.id = s.categoria_id)
+            );
+
+          DELETE FROM subcategorias s
+          WHERE s.es_makor = true
+            AND (
+              s.slug ~ '-\d+$'
+              OR s.slug = (SELECT c.slug FROM categorias c WHERE c.id = s.categoria_id)
+              OR NOT EXISTS (SELECT 1 FROM productos p WHERE p.subcategoria_id = s.id)
+            );
+          SQL
+          echo "Fake Makor subcategories cleaned."
+
     - name: Restart Systemd Service
       uses: appleboy/ssh-action@master
       with:
