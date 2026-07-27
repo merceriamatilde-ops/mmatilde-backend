@@ -5,6 +5,7 @@ using MMatilde.Api.Models;
 using MMatilde.Api.DTOs;
 using System.Text.Json;
 using System.Globalization;
+using System.Text.RegularExpressions;
 
 namespace MMatilde.Api.Services;
 
@@ -154,6 +155,8 @@ public class SyncService
                         else
                         {
                             prod!.Nombre = scraped.Nombre;
+                            prod.CategoriaId = cat.Id;
+                            prod.SubcategoriaId = subcat?.Id;
                             if (scraped.Precio.HasValue && prod.ModoPrecio != ModoPrecio.PRECIO_FIJO)
                             {
                                 prod.PrecioMayorista = scraped.Precio;
@@ -217,6 +220,7 @@ public class SyncService
                 log.DetalleErrores = JsonSerializer.Serialize(errorDetails);
             }
 
+            await CleanupFakeMakorSubcategoriasAsync();
             await _db.SaveChangesAsync();
             return new SyncResponse(true, totalUpserted);
         }
@@ -381,5 +385,51 @@ public class SyncService
         var textWithSpaces = text.Replace("-", " ");
         var textInfo = new CultureInfo("es-AR", false).TextInfo;
         return textInfo.ToTitleCase(textWithSpaces);
+    }
+
+    /// <summary>
+    /// Makor product URLs end with -NNNN. Fake "subs" created from those slugs must be removed.
+    /// </summary>
+    private static bool LooksLikeMakorProductSlug(string slug) =>
+        Regex.IsMatch(slug, @"-\d+$");
+
+    /// <summary>
+    /// Detaches products from fake Makor subcategories (product slugs mistaken as subs) and deletes them.
+    /// Also removes Makor subs whose slug equals the parent category (e.g. Pegamentos y Adhesivos).
+    /// Safe for real subs like "hilos-para-tejer" which don't end with -digits and differ from the parent slug.
+    /// </summary>
+    public async Task<CleanupFakeSubsResult> CleanupFakeMakorSubcategoriasAsync()
+    {
+        var makorSubs = await _db.Subcategorias
+            .Include(s => s.Productos)
+            .Include(s => s.Categoria)
+            .Where(s => s.EsMakor)
+            .ToListAsync();
+
+        var fakes = makorSubs.Where(s =>
+            LooksLikeMakorProductSlug(s.Slug) ||
+            (s.Categoria != null &&
+             string.Equals(s.Slug, s.Categoria.Slug, StringComparison.OrdinalIgnoreCase))
+        ).ToList();
+        var productsCleared = 0;
+
+        foreach (var fake in fakes)
+        {
+            foreach (var p in fake.Productos.ToList())
+            {
+                p.SubcategoriaId = null;
+                p.UpdatedAt = DateTime.UtcNow;
+                productsCleared++;
+            }
+            _db.Subcategorias.Remove(fake);
+        }
+
+        var empties = makorSubs
+            .Where(s => !fakes.Contains(s) && s.Productos.Count == 0)
+            .ToList();
+        _db.Subcategorias.RemoveRange(empties);
+
+        await _db.SaveChangesAsync();
+        return new CleanupFakeSubsResult(fakes.Count + empties.Count, productsCleared);
     }
 }

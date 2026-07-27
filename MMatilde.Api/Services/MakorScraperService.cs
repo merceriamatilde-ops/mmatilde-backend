@@ -194,13 +194,19 @@ public class MakorScraperService
                         var uri = new Uri(link.StartsWith("http") ? link : $"{_baseUrl}/{link.TrimStart('/')}");
                         var segments = uri.Segments.Select(s => s.TrimEnd('/')).Where(s => !string.IsNullOrEmpty(s) && s != "index.php").ToList();
 
-                        if (segments.Count > 0)
+                        // Makor URL shapes:
+                        //   /categoria/producto-slug-123          → leaf category (NO subcategory)
+                        //   /categoria/subcategoria/producto-123  → real subcategory
+                        // Old bug: treated segments[1] as sub even when it was the product slug.
+                        if (segments.Count >= 3)
                         {
                             categoriaSlug = segments[0].ToLowerInvariant();
-                            if (segments.Count > 1 && !segments[1].StartsWith("action="))
-                            {
+                            if (!segments[1].StartsWith("action=", StringComparison.OrdinalIgnoreCase))
                                 subcategoriaSlug = segments[1].ToLowerInvariant();
-                            }
+                        }
+                        else if (segments.Count >= 1)
+                        {
+                            categoriaSlug = segments[0].ToLowerInvariant();
                         }
                     }
                     catch { }

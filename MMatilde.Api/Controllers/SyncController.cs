@@ -32,6 +32,18 @@ public class SyncController : ControllerBase
         return result;
     }
 
+    /// <summary>
+    /// Quita subcategorías falsas (slugs de producto Makor tipo ...-1234) creadas por el bug del scraper.
+    /// No requiere re-sync completo; efecto inmediato en el catálogo.
+    /// </summary>
+    [HttpPost("cleanup-fake-subcategorias")]
+    [Authorize(Roles = "ADMIN")]
+    public async Task<ActionResult<CleanupFakeSubsResult>> CleanupFakeSubcategorias()
+    {
+        var result = await _syncService.CleanupFakeMakorSubcategoriasAsync();
+        return result;
+    }
+
     [HttpGet("logs")]
     [AuthorizeModule("sync")]
     public async Task<ActionResult<List<SyncLogDto>>> GetLogs()
