@@ -114,8 +114,8 @@ public class SyncService
                         Subcategoria? subcat = null;
                         if (!string.IsNullOrEmpty(scraped.SubcategoriaSlug))
                         {
-                            var subName = NormalizeName(scraped.SubcategoriaSlug);
-                            var subSlug = SlugHelper.Slugify(subName);
+                            var subSlug = MakorSubcategoriaSlug(scraped.SubcategoriaSlug);
+                            var subName = SubcategoriaDisplayName(scraped.SubcategoriaSlug);
 
                             subcat = allSubcategories.FirstOrDefault(s => s.Slug == subSlug && s.CategoriaId == cat.Id);
                             if (subcat == null)
@@ -124,6 +124,11 @@ public class SyncService
                                 _db.Subcategorias.Add(subcat);
                                 await _db.SaveChangesAsync();
                                 allSubcategories.Add(subcat);
+                            }
+                            else if (!string.Equals(subcat.Nombre, subName, StringComparison.Ordinal))
+                            {
+                                // e.g. "Fantasia 2" → "Fantasia" (Makor CMS slug fantasia-2)
+                                subcat.Nombre = subName;
                             }
 
                             categoriasAfectadas.Add($"{cat.Nombre} > {subcat.Nombre}");
@@ -295,8 +300,8 @@ public class SyncService
         Subcategoria? subcat = null;
         if (!string.IsNullOrEmpty(scraped.SubcategoriaSlug))
         {
-            var subName = NormalizeName(scraped.SubcategoriaSlug);
-            var subSlug = SlugHelper.Slugify(subName);
+            var subSlug = MakorSubcategoriaSlug(scraped.SubcategoriaSlug);
+            var subName = SubcategoriaDisplayName(scraped.SubcategoriaSlug);
 
             subcat = allSubcategories.FirstOrDefault(s => s.Slug == subSlug && s.CategoriaId == cat.Id);
             if (subcat == null)
@@ -305,6 +310,10 @@ public class SyncService
                 _db.Subcategorias.Add(subcat);
                 await _db.SaveChangesAsync();
                 allSubcategories.Add(subcat);
+            }
+            else if (!string.Equals(subcat.Nombre, subName, StringComparison.Ordinal))
+            {
+                subcat.Nombre = subName;
             }
         }
 
@@ -387,16 +396,31 @@ public class SyncService
         return textInfo.ToTitleCase(textWithSpaces);
     }
 
+    private static string MakorSubcategoriaSlug(string raw) =>
+        raw.Trim().ToLowerInvariant();
+
     /// <summary>
-    /// Makor product URLs end with -NNNN. Fake "subs" created from those slugs must be removed.
+    /// Makor sometimes uses CMS collision suffixes (-2) while the UI label stays "Fantasía"
+    /// (e.g. /cintas/fantasia-2). Strip short numeric suffixes for display only.
+    /// </summary>
+    private string SubcategoriaDisplayName(string makorSlug)
+    {
+        var forName = Regex.Replace(makorSlug, @"-\d{1,2}$", "", RegexOptions.CultureInvariant);
+        if (string.IsNullOrWhiteSpace(forName)) forName = makorSlug;
+        return NormalizeName(forName);
+    }
+
+    /// <summary>
+    /// Makor product URL tails are the numeric SKU (typically 3+ digits), e.g. ...-10956.
+    /// Short suffixes like fantasia-2 are real subcategory CMS collisions — keep them.
     /// </summary>
     private static bool LooksLikeMakorProductSlug(string slug) =>
-        Regex.IsMatch(slug, @"-\d+$");
+        Regex.IsMatch(slug, @"-\d{3,}$");
 
     /// <summary>
     /// Detaches products from fake Makor subcategories (product slugs mistaken as subs) and deletes them.
     /// Also removes Makor subs whose slug equals the parent category (e.g. Pegamentos y Adhesivos).
-    /// Safe for real subs like "hilos-para-tejer" which don't end with -digits and differ from the parent slug.
+    /// Safe for real CMS collision subs like "fantasia-2" (only 1–2 digit suffix).
     /// </summary>
     public async Task<CleanupFakeSubsResult> CleanupFakeMakorSubcategoriasAsync()
     {

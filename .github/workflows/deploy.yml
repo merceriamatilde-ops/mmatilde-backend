@@ -98,13 +98,13 @@ jobs:
           FROM subcategorias s
           WHERE p.subcategoria_id = s.id
             AND (
-              s.slug ~ '-\d+$'
+              s.slug ~ '-\d{3,}$'
               OR s.slug = (SELECT c.slug FROM categorias c WHERE c.id = s.categoria_id)
             );
 
           DELETE FROM subcategorias s
           WHERE (
-              s.slug ~ '-\d+$'
+              s.slug ~ '-\d{3,}$'
               OR s.slug = (SELECT c.slug FROM categorias c WHERE c.id = s.categoria_id)
             )
             OR (
