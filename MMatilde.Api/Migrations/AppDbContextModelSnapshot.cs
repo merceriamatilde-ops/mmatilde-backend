@@ -333,6 +333,11 @@ namespace MMatilde.Api.Migrations
                         .HasColumnType("character varying(64)")
                         .HasColumnName("idempotency_key");
 
+                    b.Property<string>("ImagenUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("imagen_url");
+
                     b.Property<string>("NotaCorreccion")
                         .HasColumnType("text")
                         .HasColumnName("nota_correccion");

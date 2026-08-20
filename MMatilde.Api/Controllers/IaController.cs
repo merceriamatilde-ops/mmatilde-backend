@@ -1,3 +1,5 @@
+using CloudinaryDotNet;
+using CloudinaryDotNet.Actions;
 using MMatilde.Api.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -13,11 +15,19 @@ namespace MMatilde.Api.Controllers;
 [ApiController]
 public class IaController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private const long MaxConsultaImageBytes = 2_000_000;
+    private static readonly HashSet<string> AllowedImageTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "image/jpeg", "image/jpg", "image/png", "image/webp", "image/heic", "image/heif",
+    };
 
-    public IaController(AppDbContext db)
+    private readonly AppDbContext _db;
+    private readonly IConfiguration _config;
+
+    public IaController(AppDbContext db, IConfiguration config)
     {
         _db = db;
+        _config = config;
     }
 
     [HttpPost("consultas")]
@@ -32,7 +42,14 @@ public class IaController : ControllerBase
             var existing = await _db.IaConsultas
                 .FirstOrDefaultAsync(c => c.IdempotencyKey == key);
             if (existing != null)
+            {
+                if (string.IsNullOrWhiteSpace(existing.ImagenUrl) && !string.IsNullOrWhiteSpace(dto.ImagenUrl))
+                {
+                    existing.ImagenUrl = dto.ImagenUrl.Trim();
+                    await _db.SaveChangesAsync();
+                }
                 return Ok(ToDto(existing));
+            }
         }
 
         var consulta = new IaConsulta
@@ -42,6 +59,7 @@ public class IaController : ControllerBase
             ContextoJson = dto.ContextoJson,
             ResultadoJson = dto.ResultadoJson,
             ProductosJson = dto.ProductosJson,
+            ImagenUrl = string.IsNullOrWhiteSpace(dto.ImagenUrl) ? null : dto.ImagenUrl.Trim(),
             IdempotencyKey = string.IsNullOrEmpty(key) ? null : key,
         };
 
@@ -49,6 +67,38 @@ public class IaController : ControllerBase
         await _db.SaveChangesAsync();
 
         return Ok(ToDto(consulta));
+    }
+
+    [HttpPost("consultas/imagen")]
+    [AllowAnonymous]
+    [RequestSizeLimit(MaxConsultaImageBytes)]
+    [RequestFormLimits(MultipartBodyLengthLimit = MaxConsultaImageBytes)]
+    public async Task<IActionResult> SubirImagenConsulta(IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest(new { message = "No se subió ningún archivo." });
+        if (file.Length > MaxConsultaImageBytes)
+            return BadRequest(new { message = "La imagen es muy pesada (máx 2 MB)." });
+        if (!string.IsNullOrEmpty(file.ContentType) && !AllowedImageTypes.Contains(file.ContentType))
+            return BadRequest(new { message = "Formato de imagen no soportado." });
+
+        var cloudinary = BuildCloudinary();
+        if (cloudinary == null)
+            return BadRequest(new { message = "Cloudinary no está configurado." });
+
+        using var stream = file.OpenReadStream();
+        var uploadParams = new ImageUploadParams
+        {
+            File = new FileDescription(file.FileName, stream),
+            Folder = "mmatilde/ia-consultas",
+            Transformation = new Transformation().Width(1200).Crop("limit").Quality("auto").FetchFormat("auto"),
+        };
+
+        var uploadResult = await cloudinary.UploadAsync(uploadParams);
+        if (uploadResult.Error != null)
+            return BadRequest(new { message = uploadResult.Error.Message });
+
+        return Ok(new { url = uploadResult.SecureUrl.ToString() });
     }
 
     [HttpGet("consultas")]
@@ -294,6 +344,16 @@ public class IaController : ControllerBase
         return NoContent();
     }
 
+    private Cloudinary? BuildCloudinary()
+    {
+        var cloudName = _config["Cloudinary:CloudName"];
+        var apiKey = _config["Cloudinary:ApiKey"];
+        var apiSecret = _config["Cloudinary:ApiSecret"];
+        if (string.IsNullOrEmpty(cloudName) || string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(apiSecret))
+            return null;
+        return new Cloudinary(new Account(cloudName, apiKey, apiSecret));
+    }
+
     private static IaConsultaDto ToDto(IaConsulta c) => new(
         c.Id,
         c.Proyecto,
@@ -301,6 +361,7 @@ public class IaController : ControllerBase
         c.ContextoJson,
         c.ResultadoJson,
         c.ProductosJson,
+        c.ImagenUrl,
         c.Evaluacion,
         c.NotaCorreccion,
         c.CorreccionEsperada,

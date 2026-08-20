@@ -7,6 +7,7 @@ public class IaConsulta
     public string? Tecnica { get; set; }
     public string ContextoJson { get; set; } = "{}";
     public string ResultadoJson { get; set; } = "{}";
+    public string? ImagenUrl { get; set; }
     public string? ProductosJson { get; set; }
     public string? Evaluacion { get; set; }
     public string? NotaCorreccion { get; set; }

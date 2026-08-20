@@ -416,6 +416,7 @@ public class AppDbContext : DbContext
             b.Property(e => e.ContextoJson).HasColumnName("contexto_json").HasColumnType("jsonb").IsRequired();
             b.Property(e => e.ResultadoJson).HasColumnName("resultado_json").HasColumnType("jsonb").IsRequired();
             b.Property(e => e.ProductosJson).HasColumnName("productos_json").HasColumnType("jsonb");
+            b.Property(e => e.ImagenUrl).HasColumnName("imagen_url").HasMaxLength(1000);
             b.Property(e => e.Evaluacion).HasColumnName("evaluacion").HasMaxLength(20);
             b.Property(e => e.NotaCorreccion).HasColumnName("nota_correccion");
             b.Property(e => e.CorreccionEsperada).HasColumnName("correccion_esperada");

@@ -7,6 +7,7 @@ public record IaConsultaDto(
     string ContextoJson,
     string ResultadoJson,
     string? ProductosJson,
+    string? ImagenUrl,
     string? Evaluacion,
     string? NotaCorreccion,
     string? CorreccionEsperada,
@@ -19,7 +20,8 @@ public record CrearIaConsultaDto(
     string? Tecnica,
     string ContextoJson,
     string ResultadoJson,
-    string? ProductosJson
+    string? ProductosJson,
+    string? ImagenUrl
 );
 
 public record IaFeedbackDto(
