@@ -15,7 +15,7 @@ namespace MMatilde.Api.Controllers;
 [ApiController]
 public class IaController : ControllerBase
 {
-    private const long MaxConsultaImageBytes = 2_000_000;
+    private const long MaxConsultaImageBytes = 8_000_000;
     private static readonly HashSet<string> AllowedImageTypes = new(StringComparer.OrdinalIgnoreCase)
     {
         "image/jpeg", "image/jpg", "image/png", "image/webp", "image/heic", "image/heif",
@@ -73,13 +73,19 @@ public class IaController : ControllerBase
     [AllowAnonymous]
     [RequestSizeLimit(MaxConsultaImageBytes)]
     [RequestFormLimits(MultipartBodyLengthLimit = MaxConsultaImageBytes)]
-    public async Task<IActionResult> SubirImagenConsulta(IFormFile file)
+    public async Task<IActionResult> SubirImagenConsulta([FromForm] IFormFile file)
     {
         if (file == null || file.Length == 0)
             return BadRequest(new { message = "No se subió ningún archivo." });
         if (file.Length > MaxConsultaImageBytes)
-            return BadRequest(new { message = "La imagen es muy pesada (máx 2 MB)." });
-        if (!string.IsNullOrEmpty(file.ContentType) && !AllowedImageTypes.Contains(file.ContentType))
+            return BadRequest(new { message = "La imagen es muy pesada (máx 8 MB)." });
+        var contentType = file.ContentType ?? "";
+        var looksLikeImage =
+            string.IsNullOrEmpty(contentType)
+            || contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
+            || AllowedImageTypes.Contains(contentType)
+            || contentType.Equals("application/octet-stream", StringComparison.OrdinalIgnoreCase);
+        if (!looksLikeImage)
             return BadRequest(new { message = "Formato de imagen no soportado." });
 
         var cloudinary = BuildCloudinary();
